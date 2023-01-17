@@ -1,11 +1,12 @@
 module GNCTestServer
 using SatelliteDynamics
 using LinearAlgebra
+using Sockets
 import Base: *, +
 include("quaternions.jl")
 include("mag_field.jl")
 
-export sim, Control, Parameters
+export sim, Control, Parameters, sccket_simulator
 
 *(v::NamedTuple, s::Number) = map(y -> s * y, v)
 *(s::Number, v::NamedTuple) = map(y -> s * y, v)
@@ -254,6 +255,43 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     N = 100000
     hist = log_init(x, N)
     for i = 1:N-1
+        control = control_step(x, params, control_fn, t)
+        (x, t) = sim_step(x, params, control, t, dt)
+        log_step(hist, x, i)
+        if norm(x.ω) < 0.001
+            hist = hist[1:i, :]
+            break
+        end
+    end
+
+    return hist
+end
+
+function socket_control(uplink)
+    str = readavailable(uplink)
+    println(str)
+end
+
+function socket_simulator(control_fn, log_init=default_log_init, log_step=default_log_step)
+    x = initialize_orbit()
+    println("intialized orbit!")
+
+    J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
+    params = Parameters(J, [0.0, 0.0, 0.0])
+
+    t = Epoch(2020, 11, 30)          # Starting time is Nov 30, 2020
+    dt = 0.5                         # Time step, in seconds
+
+    N = 100000
+    hist = log_init(x, N)
+
+    _ = Sockets.listen("/tmp/satuplink")
+    _ = Sockets.listen("/tmp/satdownlink")
+    uplink = Sockets.connect("/tmp/satuplink")
+    downlink = Sockets.connect("/tmp/satdownlink")
+    for i = 1:N-1
+        write(downlink, "hello")
+        socket_control(uplink)
         control = control_step(x, params, control_fn, t)
         (x, t) = sim_step(x, params, control, t, dt)
         log_step(hist, x, i)
