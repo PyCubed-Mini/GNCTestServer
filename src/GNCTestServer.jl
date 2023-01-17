@@ -75,7 +75,7 @@ Arguments
 - dt: the time step to integrate forward by                              | Float64
 
 Returns
-- state: the state of the spacecraft after the integration              | State
+- state: the state of the spacecraft after the integration               | State
 """
 function integrate_state(state::State, parameters::Parameters, control::Control, t::Epoch, dt::Float64)::State
     state⁺ = rk4(state, t, dt, (state, t) -> dynamics(state, parameters, control, t))
@@ -152,7 +152,7 @@ Arguments:
 - ω:  (Optional) Initial angular velocity                                          |  [3,]
 
 Returns:
-- x:  Initial state, as (r, v, q, ω)                                                           |  State
+- x:  Initial state, as (r, v, q, ω)                                               |  State
 """
 function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothing, Rₑ=6378.1363e3, μ=3.9860044188e14)::State
 
@@ -274,7 +274,7 @@ Arguments:
 - iterations:  Number of iterations the simulation is run                |  Scalar
 
 Returns:
-- hist:        Initialized log of the simulation                          |  Matrix
+- hist:        Initialized log of the simulation                         |  Matrix
 """
 function default_log_init(state, iterations)
     hist = zeros(iterations, 4)
