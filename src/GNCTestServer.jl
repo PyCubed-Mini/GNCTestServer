@@ -29,8 +29,6 @@ mutable struct Control
 end
 
 """
-rk4(x, derivative, t, dt)
-
 Rung-Kutta 4th order integrator
 """
 function rk4(x, t, dt, derivative)
@@ -45,8 +43,6 @@ function rk4(x, t, dt, derivative)
 end
 
 """ 
-dynamics (state, parameters, control, t)
-
 Returns the derivative of the state, given the current state, parameters, control input, and time.
 
 Arguments:
@@ -69,8 +65,6 @@ function dynamics(state::State, parameters::Parameters, control::Control, t::Epo
 end
 
 """ 
-integrate_state(state, parameters, control, t, dt)
-
 Integrate the state forward by dt seconds, using the given control input.
 
 Arguments
@@ -95,8 +89,6 @@ function integrate_state(state::State, parameters::Parameters, control::Control,
 end
 
 """
-accel_perturbations(epc, r, v; mass, area_drag, coef_drag, area_srp, coef_srp, n_grav, m_grav, third_body)
-
 Generates the acceleration for a spacecraft in LEO. Accounts for a variety of factors, 
 including spherical harmonics, atmospheric drag, SRP, and thirdbody from sun and moon
 
@@ -144,8 +136,7 @@ function accel_perturbations(epc::Epoch, r, v;
     return (a)
 end
 
-""" initialize_orbit(; r, v, a, q, ω, Rₑ, μ)
-
+"""
 Initializes a random, viable orbit given a few different terms, usually 
 a position 'r' in Cartesian coordinates. Initial velocity may be specified, but 
 if specified it will not necessarily result in a stable orbit. 
@@ -199,8 +190,7 @@ function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothi
     return (r=r₀, v=v₀, q=q₀, ω=ω₀)
 end
 
-""" control_step (state, params, control_fn, t)
-
+"""
 Updates the free parameters given the state and time, 
 then calls the control function to compute the control input.
 
@@ -218,8 +208,7 @@ function control_step(state::State, params::Parameters, control_fn, t::Epoch)::C
     return control_fn(state, params, t)
 end
 
-""" sim_step (state, params, control_fn, t, dt)
-
+"""
 steps the simulation forward by one time step, dt.
 given the current state, free parameters, control function, and time.
 
@@ -240,8 +229,7 @@ function sim_step(state::State, params::Parameters, control::Control, t::Epoch, 
     return (state, t)
 end
 
-""" sim (control_fn, log_init, log_step)
-
+"""
 Runs the simulation, given a control function.
 Optionally takes in functions to initialize and update the log.
 
@@ -278,8 +266,7 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     return hist
 end
 
-""" default_log_init (state, iterations)
-
+"""
 Default function to initialize the log, only logs angular velocity and magnitude.
 
 Arguments:
@@ -296,8 +283,7 @@ function default_log_init(state, iterations)
     return hist
 end
 
-""" default_log_step (hist, state, i)
-
+"""
 Default function to update the log, only logs angular velocity and magnitude.
 
 Arguments:
