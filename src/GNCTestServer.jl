@@ -1,4 +1,4 @@
-module Simulator
+module GNCTestServer
 using SatelliteDynamics
 using LinearAlgebra
 import Base: *, +

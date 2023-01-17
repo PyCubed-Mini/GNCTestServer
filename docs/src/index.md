@@ -7,6 +7,6 @@
     - Support for this server has not yet been created
 ## Function Documentation
 ```@autodocs
-Modules = [Simulator]
+Modules = [GNCTestServer]
 Order   = [:function, :type]
 ```

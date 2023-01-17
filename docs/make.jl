@@ -1,6 +1,6 @@
 # Inside make.jl
 push!(LOAD_PATH, "../src/")
-using Simulator
+using GNCTestServer
 using Documenter
 makedocs(
     sitename="GNCTestServer.jl",
