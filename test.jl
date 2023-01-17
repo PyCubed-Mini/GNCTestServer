@@ -1,7 +1,7 @@
 using Test
 using LinearAlgebra
 using Plots
-include("lib/Simulator.jl")
+include("lib/GNCTestServer.jl")
 
 @testset "basic single variable integration" begin
     idx = x -> x

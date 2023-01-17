@@ -4,7 +4,7 @@ using GNCTestServer
 using Documenter
 makedocs(
     sitename="GNCTestServer.jl",
-    modules=[Simulator],
+    modules=[GNCTestServer],
     pages=[
         "Home" => "index.md"
     ])
