@@ -11,6 +11,14 @@ export sim, Control, Parameters
 *(s::Number, v::NamedTuple) = map(y -> s * y, v)
 +(a::NamedTuple, b::NamedTuple) = map(+, a, b)
 
+const State = NamedTuple{
+    (:r, :v, :q, :ω),
+    Tuple{Array{Float64,1},
+        Array{Float64,1},
+        Array{Float64,1},
+        Array{Float64,1}}
+}
+
 mutable struct Parameters
     J::Array{Float64,2} # Inertia matrix
     b::Array{Float64,1} # Magnetic field
@@ -21,9 +29,9 @@ mutable struct Control
 end
 
 """
-    rk4(x, derivative, t, dt)
+rk4(x, derivative, t, dt)
 
-    Rung-Kutta 4th order integrator
+Rung-Kutta 4th order integrator
 """
 function rk4(x, t, dt, derivative)
     k₁ = dt * derivative(x, t)
@@ -36,7 +44,21 @@ function rk4(x, t, dt, derivative)
     return x⁺
 end
 
-function dynamics(state, parameters, control, t)
+""" 
+dynamics (state, parameters, control, t)
+
+Returns the derivative of the state, given the current state, parameters, control input, and time.
+
+Arguments:
+- state: the current state of the spacecraft                             | State
+- parameters: the parameters of the spacecraft                           | Parameters
+- control: the control input to apply to the spacecraft                  | Control
+- t: the current time                                                    | Epoch
+
+Returns:
+- state: the derivative of the state                                     | State
+"""
+function dynamics(state::State, parameters::Parameters, control::Control, t::Epoch)::State
     u = cross(control.m, parameters.b)
     return (
         r=state.v,
@@ -46,12 +68,22 @@ function dynamics(state, parameters, control, t)
     )
 end
 
-function integrate_state(state, parameters, control, t::Epoch, dt::Float64)
-    """
-    rk4(state, control, t, dt, normalize, dynamics)
+""" 
+integrate_state(state, parameters, control, t, dt)
 
-    Rung-Kutta 4th order integrator, with the state normalized at the end.
-    """
+Integrate the state forward by dt seconds, using the given control input.
+
+Arguments
+- state: the current state of the spacecraft                             | State
+- parameters: the parameters of the spacecraft                           | Parameters
+- control: the control input to apply to the spacecraft                  | Control
+- t: the current time                                                    | Epoch
+- dt: the time step to integrate forward by                              | Float64
+
+Returns
+- state: the state of the spacecraft after the integration              | State
+"""
+function integrate_state(state::State, parameters::Parameters, control::Control, t::Epoch, dt::Float64)::State
     state⁺ = rk4(state, t, dt, (state, t) -> dynamics(state, parameters, control, t))
 
     return (
@@ -63,12 +95,12 @@ function integrate_state(state, parameters, control, t::Epoch, dt::Float64)
 end
 
 """
-    accel_perturbations(epc, r, v; mass, area_drag, coef_drag, area_srp, coef_srp, n_grav, m_grav, third_body)
+accel_perturbations(epc, r, v; mass, area_drag, coef_drag, area_srp, coef_srp, n_grav, m_grav, third_body)
 
-    Generates the acceleration for a spacecraft in LEO. Accounts for a variety of factors, 
-    including spherical harmonics, atmospheric drag, SRP, and thirdbody from sun and moon
+Generates the acceleration for a spacecraft in LEO. Accounts for a variety of factors, 
+including spherical harmonics, atmospheric drag, SRP, and thirdbody from sun and moon
 
-    ForwardDiff friendly (written by Kevin)
+ForwardDiff friendly (written by Kevin)
 """
 function accel_perturbations(epc::Epoch, r, v;
     mass::Real=1.0, area_drag::Real=0.01, coef_drag::Real=2.3, area_srp::Real=1.0,
@@ -129,10 +161,9 @@ Arguments:
 - ω:  (Optional) Initial angular velocity                                          |  [3,]
 
 Returns:
-- x:  Initial state, as 
-          x = [r, v, q, ω]
+- x:  Initial state, as (r, v, q, ω)                                                           |  State
 """
-function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothing, Rₑ=6378.1363e3, μ=3.9860044188e14)
+function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothing, Rₑ=6378.1363e3, μ=3.9860044188e14)::State
 
     ### POSITION ###
 
@@ -168,7 +199,23 @@ function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothi
     return (r=r₀, v=v₀, q=q₀, ω=ω₀)
 end
 
-function control_step(state, params::Parameters, control_fn, t)
+""" control_step (state, params, control_fn, t)
+
+Updates the free parameters given the state and time, 
+then calls the control function to compute the control input.
+
+Arguments:
+- state:   Current state of the system, as a State struct            |  State
+- params:  Free parameters of the system, as a Parameters struct     |  Parameters
+- control: Control function of state, parameters, and time           |  Function
+- t:       Current time, as an Epoch struct                          |  Epoch
+
+Returns:
+- control: Control input of the Satellite                            |  Control
+"""
+function control_step(state::State, params::Parameters, control_fn, t::Epoch)::Control
+    params.b = IGRF13(state.r, t)
+    return control_fn(state, params, t)
 end
 
 """ sim_step (state, params, control_fn, t, dt)
@@ -177,20 +224,35 @@ steps the simulation forward by one time step, dt.
 given the current state, free parameters, control function, and time.
 
 Arguments:
-- state:      Current state of the system, as a State struct                 |  State
-- params:     Free parameters of the system, as a Parameters struct          |  Parameters
-- control_fn: Function of state, parameters, and time that yields a control  |  Function
-- t:          Current time, as an Epoch struct                               |  Epoch
-- dt:         Time step, in seconds                                          |  Scalar
+- state:   Current state of the system, as a State struct            |  State
+- params:  Free parameters of the system, as a Parameters struct     |  Parameters
+- control: Control input of the Satellite                            |  Control
+- t:       Current time, as an Epoch struct                          |  Epoch
+- dt:      Time step, in seconds                                     |  Scalar
+
+Returns:
+- state:   Updated state of the system, as a State struct            |  State
+- t:       Updated time, as an Epoch struct                          |  Epoch
 """
-function sim_step(state, params::Parameters, control_fn, t, dt)
-    params.b = IGRF13(state.r, t)
-    control = control_fn(state, params, t)
+function sim_step(state::State, params::Parameters, control::Control, t::Epoch, dt::Float64)::Tuple{State, Epoch}
     state = integrate_state(state, params, control, t, dt)
-    t += dt                      # Don't forget to update time (not that it really matters...)
+    t += dt
     return (state, t)
 end
 
+""" sim (control_fn, log_init, log_step)
+
+Runs the simulation, given a control function.
+Optionally takes in functions to initialize and update the log.
+
+Arguments:
+- control_fn:  Function to compute control input, given state, params, and time      |  Function
+- log_init:    (Optional) Function to initialize the log, given the number of steps  |  Function
+- log_step:    (Optional) Function to update the log, given the current state        |  Function
+
+Returns:
+- hist:        Generated log of the simulation
+"""
 function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     x = initialize_orbit()
     println("intialized orbit!")
@@ -204,7 +266,8 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     N = 100000
     hist = log_init(x, N)
     for i = 1:N-1
-        (x, t) = sim_step(x, params, control_fn, t, dt)
+        control = control_step(x, params, control_fn, t)
+        (x, t) = sim_step(x, params, control, t, dt)
         log_step(hist, x, i)
         if norm(x.ω) < 0.001
             hist = hist[1:i, :]
@@ -215,6 +278,17 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     return hist
 end
 
+""" default_log_init (state, iterations)
+
+Default function to initialize the log, only logs angular velocity and magnitude.
+
+Arguments:
+- state:       Current state of the system, as a State struct            |  State
+- iterations:  Number of iterations the simulation is run                |  Scalar
+
+Returns:
+- hist:        Initialized log of the simulation                          |  Matrix
+"""
 function default_log_init(state, iterations)
     hist = zeros(iterations, 4)
     hist[1, 1:3] .= state.ω
@@ -222,6 +296,15 @@ function default_log_init(state, iterations)
     return hist
 end
 
+""" default_log_step (hist, state, i)
+
+Default function to update the log, only logs angular velocity and magnitude.
+
+Arguments:
+- hist:        Log of the simulation                                     |  Matrix
+- state:       Current state of the system, as a State struct            |  State
+- i:           Current iteration of the simulation                       |  Scalar
+"""
 function default_log_step(hist, state, i)
     hist[i+1, 1:3] .= state.ω
     hist[i+1, 4] = norm(state.ω)
