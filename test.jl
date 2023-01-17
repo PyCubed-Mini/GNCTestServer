@@ -10,7 +10,10 @@ include("lib/simulator.jl")
 end;
 
 @testset "detumbling" begin
-    function control_law(ω, b)
+    function control_law(state, params, t)
+        ω = state.ω
+        b = params.b
+
         b̂ = b / norm(b)
         k = 7e-4
         M = -k * (I(3) - b̂ * b̂') * ω

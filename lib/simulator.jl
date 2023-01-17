@@ -168,40 +168,63 @@ function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothi
     return (r=r₀, v=v₀, q=q₀, ω=ω₀)
 end
 
+function control_step(state, params::Parameters, control_fn, t)
+end
+
+""" sim_step (state, params, control_fn, t, dt)
+
+steps the simulation forward by one time step, dt.
+given the current state, free parameters, control function, and time.
+
+Arguments:
+- state:      Current state of the system, as a State struct                 |  State
+- params:     Free parameters of the system, as a Parameters struct          |  Parameters
+- control_fn: Function of state, parameters, and time that yields a control  |  Function
+- t:          Current time, as an Epoch struct                               |  Epoch
+- dt:         Time step, in seconds                                          |  Scalar
+"""
 function sim_step(state, params::Parameters, control_fn, t, dt)
     params.b = IGRF13(state.r, t)
-    control = control_fn(state.ω, params.b)
+    control = control_fn(state, params, t)
     state = integrate_state(state, params, control, t, dt)
     t += dt                      # Don't forget to update time (not that it really matters...)
     return (state, t)
 end
 
-function sim(control_fn)
-    x₀ = initialize_orbit()
+function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
+    x = initialize_orbit()
     println("intialized orbit!")
 
     J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
     params = Parameters(J, [0.0, 0.0, 0.0])
+
     t = Epoch(2020, 11, 30)          # Starting time is Nov 30, 2020
     dt = 0.5                         # Time step, in seconds
 
-    N = 1000000
-    q_hist = zeros(N, 4)
-    q_hist[1, 1:3] .= x₀.ω
-    q_hist[1, 4] = norm(x₀.ω)
-    x = x₀
+    N = 100000
+    hist = log_init(x, N)
     for i = 1:N-1
         (x, t) = sim_step(x, params, control_fn, t, dt)
-        # q_hist[i + 1, :] .= x[7:10]
-        q_hist[i+1, 1:3] .= x.ω
-        q_hist[i+1, 4] = norm(x.ω)
+        log_step(hist, x, i)
         if norm(x.ω) < 0.001
-            q_hist = q_hist[1:i, :]
+            hist = hist[1:i, :]
             break
         end
     end
 
-    return q_hist
+    return hist
+end
+
+function default_log_init(state, iterations)
+    hist = zeros(iterations, 4)
+    hist[1, 1:3] .= state.ω
+    hist[1, 4] = norm(state.ω)
+    return hist
+end
+
+function default_log_step(hist, state, i)
+    hist[i+1, 1:3] .= state.ω
+    hist[i+1, 4] = norm(state.ω)
 end
 
 end
