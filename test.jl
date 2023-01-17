@@ -1,7 +1,9 @@
 using Test
 using LinearAlgebra
 using Plots
-include("lib/GNCTestServer.jl")
+include("src/GNCTestServer.jl")
+
+Simulator = GNCTestServer
 
 @testset "basic single variable integration" begin
     idx = x -> x
