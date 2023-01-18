@@ -4,8 +4,8 @@ from random import randint
 from multiprocessing import shared_memory
 
 control_data = 0
-UP_FIFO = "/tmp/uplink"
-DOWN_FIFO = "/tmp/downlink"
+UP_FIFO = "/tmp/satuplink"
+DOWN_FIFO = "/tmp/satdownlink"
 
 while True:
     # send control data to Julia sim
