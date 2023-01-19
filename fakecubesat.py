@@ -1,30 +1,38 @@
 import time
-import os
-from random import randint
 from multiprocessing import shared_memory
+import random
+import msgpack
 
-control_data = 0
-UP_FIFO = "/tmp/uplink"
-DOWN_FIFO = "/tmp/downlink"
+
+control_data = {
+    "m": [0.0, 0.0, 0.0],
+    "time": time.time()
+}
+UPLINK_FILE = "/tmp/satuplink"
+DOWNLINK_FILE = "/tmp/satdownlink"
+
+print('Starting fake cubesat')
+uplink = open(UPLINK_FILE, "wb")
+print('Uplink established')
 
 while True:
     # send control data to Julia sim
-    print("opening uplink...")
     try:
-        write_file = open(UP_FIFO, "w")
-        print("FIFO opened")
-        write_file.write(time.time(), control_data)
-        print("written to file")
+        payload = msgpack.packb(control_data, use_bin_type=True)
+        print(payload)
+        uplink.write(payload)
+        uplink.flush()
     except Exception as e:
-        print(e)
+        print(f'Error reading uplinked data {e}')
 
-    if randint > 0.5:
+    if random.uniform(0, 1) > 0.5:
         # read from the Julia data to update data
         try:
-            read_file = open(DOWN_FIFO, "r")
-            print(read_file.read())
+            read_file = open(DOWNLINK_FILE, "rb")
+            data = msgpack.unpack(read_file)
+            print(data)
 
         except Exception as e:
-            print(e)
+            print(f'Error reading downlinked data {e}')
 
-    time.sleep(0.1)
+    time.sleep(2.0)
