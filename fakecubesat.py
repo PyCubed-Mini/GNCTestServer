@@ -3,7 +3,6 @@ from multiprocessing import shared_memory
 import random
 import msgpack
 
-
 control_data = {
     "m": [0.0, 0.0, 0.0],
     "time": time.time()
