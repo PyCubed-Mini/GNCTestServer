@@ -1,6 +1,7 @@
 module GNCTestServer
 using SatelliteDynamics
 using LinearAlgebra
+using MsgPack
 using Sockets
 import Base: *, +
 include("quaternions.jl")
@@ -269,33 +270,49 @@ end
 
 function socket_control(uplink)
     str = readavailable(uplink)
-    println(str)
+    control_data = MsgPack.unpack(str)
+    return Control(control_data["m"])
 end
 
-function socket_simulator(control_fn, log_init=default_log_init, log_step=default_log_step)
-    x = initialize_orbit()
+function downlink(fd, state, params)
+    payload = Dict(
+        :state => Dict(
+            :ω => state.ω,
+        ),
+        :params => Dict(
+            :b => params.b,
+        )
+    )
+    truncate(fd, 0)
+    write(fd, MsgPack.pack(payload))
+end
+
+function socket_simulator(log_init=default_log_init, log_step=default_log_step)
+    state = initialize_orbit()
     println("intialized orbit!")
 
     J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
     params = Parameters(J, [0.0, 0.0, 0.0])
 
-    t = Epoch(2020, 11, 30)          # Starting time is Nov 30, 2020
+    time = Epoch(2020, 11, 30)          # Starting time is Nov 30, 2020
     dt = 0.5                         # Time step, in seconds
 
     N = 100000
-    hist = log_init(x, N)
+    hist = log_init(state, N)
 
-    _ = Sockets.listen("/tmp/satuplink")
-    _ = Sockets.listen("/tmp/satdownlink")
-    uplink = Sockets.connect("/tmp/satuplink")
-    downlink = Sockets.connect("/tmp/satdownlink")
+    println("Attmepting to establish uplink...")
+    # opening uplink file waits for a process to open it for writing
+    uplink_fd = open("/tmp/satuplink", "r")
+    println("Established uplink!")
+    downlink_fd = open("/tmp/satdownlink", write=true, create=true)
+    println("Established downlink!")
     for i = 1:N-1
-        write(downlink, "hello")
-        socket_control(uplink)
-        control = control_step(x, params, control_fn, t)
-        (x, t) = sim_step(x, params, control, t, dt)
-        log_step(hist, x, i)
-        if norm(x.ω) < 0.001
+        println("Waiting for control...")
+        control = socket_control(uplink_fd)
+        (state, time) = sim_step(state, params, control, time, dt)
+        downlink(downlink_fd, state, params)
+        log_step(hist, state, i)
+        if norm(state.ω) < 0.001
             hist = hist[1:i, :]
             break
         end
