@@ -268,23 +268,25 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     return hist
 end
 
-function socket_control(uplink)
-    str = readavailable(uplink)
-    control_data = MsgPack.unpack(str)
-    return Control(control_data["m"])
+function uplink(uplink)
+    str = read(uplink)
+    return MsgPack.unpack(str)
 end
 
 function downlink(fd, state, params)
-    payload = Dict(
-        :state => Dict(
-            :ω => state.ω,
-        ),
-        :params => Dict(
-            :b => params.b,
-        )
+    sensors = Dict(
+        :ω => state.ω,
+        :b => params.b,
     )
     truncate(fd, 0)
-    write(fd, MsgPack.pack(payload))
+    seek(fd, 0)
+    payload = MsgPack.pack(sensors)
+    write(fd, payload)
+    flush(fd)
+end
+
+function update_parameters(state, params, time)
+    params.b = IGRF13(state.r, time)
 end
 
 function socket_simulator(log_init=default_log_init, log_step=default_log_step)
@@ -307,11 +309,15 @@ function socket_simulator(log_init=default_log_init, log_step=default_log_step)
     downlink_fd = open("/tmp/satdownlink", write=true, create=true)
     println("Established downlink!")
     for i = 1:N-1
-        println("Waiting for control...")
-        control = socket_control(uplink_fd)
-        (state, time) = sim_step(state, params, control, time, dt)
+        update_parameters(state, params, time)
         downlink(downlink_fd, state, params)
+        println("Waiting for control...")
+        uplink_data = uplink(uplink_fd)
+        println("Received uplink $uplink_data")
+        control = Control(uplink_data["m"])
+        (state, time) = sim_step(state, params, control, time, uplink_data["dt"])
         log_step(hist, state, i)
+        println("Completed iteration $i/$N with norm(ω) = $(norm(state.ω))")
         if norm(state.ω) < 0.001
             hist = hist[1:i, :]
             break
