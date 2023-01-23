@@ -30,6 +30,8 @@ mutable struct Control
     m::Array{Float64,1} # Control input
 end
 
+MAGIC_PACKET_SIZE = 43
+
 """
 Rung-Kutta 4th order integrator
 """
@@ -269,7 +271,8 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
 end
 
 function uplink(uplink)
-    str = read(uplink)
+    # size of the uplinked packets, must be constant
+    str = read(uplink, MAGIC_PACKET_SIZE)
     return MsgPack.unpack(str)
 end
 
@@ -311,14 +314,13 @@ function socket_simulator(log_init=default_log_init, log_step=default_log_step)
     for i = 1:N-1
         update_parameters(state, params, time)
         downlink(downlink_fd, state, params)
-        println("Waiting for control...")
         uplink_data = uplink(uplink_fd)
-        println("Received uplink $uplink_data")
         control = Control(uplink_data["m"])
-        (state, time) = sim_step(state, params, control, time, uplink_data["dt"])
+        dt = uplink_data["dt"]
+        (state, time) = sim_step(state, params, control, time, dt)
         log_step(hist, state, i)
-        println("Completed iteration $i/$N with norm(ω) = $(norm(state.ω))")
-        if norm(state.ω) < 0.001
+        println("[$i/$N]: norm(ω) = $(norm(state.ω)); r=$(state.r); b=$(params.b); dt=$dt")
+        if norm(state.ω) < 0.01
             hist = hist[1:i, :]
             break
         end
