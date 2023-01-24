@@ -30,6 +30,8 @@ mutable struct Control
     m::Array{Float64,1} # Control input
 end
 
+MAGIC_PACKET_SIZE = 43
+
 """
 Rung-Kutta 4th order integrator
 """
@@ -268,23 +270,26 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     return hist
 end
 
-function socket_control(uplink)
-    str = readavailable(uplink)
-    control_data = MsgPack.unpack(str)
-    return Control(control_data["m"])
+function uplink(uplink)
+    # size of the uplinked packets, must be constant
+    str = read(uplink, MAGIC_PACKET_SIZE)
+    return MsgPack.unpack(str)
 end
 
 function downlink(fd, state, params)
-    payload = Dict(
-        :state => Dict(
-            :ω => state.ω,
-        ),
-        :params => Dict(
-            :b => params.b,
-        )
+    sensors = Dict(
+        :ω => state.ω,
+        :b => params.b,
     )
     truncate(fd, 0)
-    write(fd, MsgPack.pack(payload))
+    seek(fd, 0)
+    payload = MsgPack.pack(sensors)
+    write(fd, payload)
+    flush(fd)
+end
+
+function update_parameters(state, params, time)
+    params.b = IGRF13(state.r, time)
 end
 
 function socket_simulator(log_init=default_log_init, log_step=default_log_step)
@@ -307,12 +312,15 @@ function socket_simulator(log_init=default_log_init, log_step=default_log_step)
     downlink_fd = open("/tmp/satdownlink", write=true, create=true)
     println("Established downlink!")
     for i = 1:N-1
-        println("Waiting for control...")
-        control = socket_control(uplink_fd)
-        (state, time) = sim_step(state, params, control, time, dt)
+        update_parameters(state, params, time)
         downlink(downlink_fd, state, params)
+        uplink_data = uplink(uplink_fd)
+        control = Control(uplink_data["m"])
+        dt = uplink_data["dt"]
+        (state, time) = sim_step(state, params, control, time, dt)
         log_step(hist, state, i)
-        if norm(state.ω) < 0.001
+        println("[$i/$N]: norm(ω) = $(norm(state.ω)); r=$(state.r); b=$(params.b); dt=$dt")
+        if norm(state.ω) < 0.01
             hist = hist[1:i, :]
             break
         end
