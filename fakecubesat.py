@@ -2,6 +2,7 @@ import time
 from multiprocessing import shared_memory
 import random
 import msgpack
+import threading
 try:
     from ulab.numpy import eye as identity, array, linalg, cross, dot as matmul, isfinite, all
 except Exception:
@@ -25,6 +26,21 @@ class cubesat:
 
 
 Satellite = cubesat()
+
+
+def read_data():
+    try:
+        read_file = open(DOWNLINK_FILE, "rb")
+        data = read_file.read()
+        if len(data) == 0:
+            raise Exception('No downlinked data')
+        data = msgpack.unpackb(data)
+
+        Satellite.gyro = data['ω']
+        Satellite.magnetic = data['b']
+
+    except Exception as e:
+        print(f'Error reading downlinked data:\n {e}')
 
 
 # def bcross(b, ω, k=7e-4):
@@ -64,18 +80,8 @@ while True:
     except Exception as e:
         print(f'Error sending uplinked data {e}')
 
-        # read from the Julia data to update data
-    try:
-        read_file = open(DOWNLINK_FILE, "rb")
-        data = read_file.read()
-        if len(data) == 0:
-            raise Exception('No downlinked data')
-        data = msgpack.unpackb(data)
-
-        Satellite.gyro = data['ω']
-        Satellite.magnetic = data['b']
-
-    except Exception as e:
-        print(f'Error reading downlinked data:\n {e}')
+    # read from the Julia data to update data
+    t = threading.Thread(target=read_data(), name="read_thread")
+    t.start()
 
     time.sleep(10)
