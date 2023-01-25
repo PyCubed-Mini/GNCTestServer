@@ -17,6 +17,8 @@ print('Uplink established')
 
 MAGIC_PACKET_SIZE = 43
 
+TIME_INTERVAL = 10
+
 
 class cubesat:
 
@@ -27,20 +29,27 @@ class cubesat:
 
 Satellite = cubesat()
 
+# read data
+
 
 def read_data():
-    try:
-        read_file = open(DOWNLINK_FILE, "rb")
-        data = read_file.read()
-        if len(data) == 0:
-            raise Exception('No downlinked data')
-        data = msgpack.unpackb(data)
+    while True:
+        try:
+            lock = threading.Lock()
+            with lock:
+                read_file = open(DOWNLINK_FILE, "rb")
+                data = read_file.read()
+                if len(data) == 0:
+                    raise Exception('No downlinked data')
+                data = msgpack.unpackb(data)
 
-        Satellite.gyro = data['ω']
-        Satellite.magnetic = data['b']
+            Satellite.gyro = data['ω']
+            Satellite.magnetic = data['b']
 
-    except Exception as e:
-        print(f'Error reading downlinked data:\n {e}')
+        except Exception as e:
+            print(f'Error reading downlinked data:\n {e}')
+
+        time.sleep(TIME_INTERVAL)
 
 
 # def bcross(b, ω, k=7e-4):
@@ -58,6 +67,9 @@ def bcross(b, ω, k=7e-4):
 
 
 prev_time = time.time()
+
+t = threading.Thread(target=read_data, name="read_thread")
+t.start()
 
 while True:
     # send control data to Julia sim
@@ -80,8 +92,4 @@ while True:
     except Exception as e:
         print(f'Error sending uplinked data {e}')
 
-    # read from the Julia data to update data
-    t = threading.Thread(target=read_data(), name="read_thread")
-    t.start()
-
-    time.sleep(10)
+    time.sleep(TIME_INTERVAL)
