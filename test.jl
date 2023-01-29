@@ -47,8 +47,8 @@ end
     end
 
 
-    data = Simulator.socket_simulator()
-    display(plot(data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
+    (data, time) = Simulator.socket_simulator()
+    display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 
 
 end
