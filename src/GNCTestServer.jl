@@ -317,7 +317,61 @@ function initialize_params()
     return params
 end
 
-function socket_simulator(launch::Cmd, log_init=default_log_init, log_step=default_log_step)
+mutable struct FunctionSim
+    dt::Float64
+    control::Control
+end
+
+function simulate(control::Function; log_init=default_log_init, log_step=default_log_step, max_iterations=1000, dt=0.5)
+    function setup()
+        return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
+    end
+    function step(sim, state, params, time)
+        sim.control = control(state, params, time)
+    end
+    function cleanup(sim)
+        return
+    end
+    return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations)
+
+end
+
+mutable struct SocketSim
+    dt::Float64
+    satellite_process::Base.Process
+    uplink_fd::IOStream
+    downlink_fd::IOStream
+    control::Control
+end
+
+function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step, max_iterations=1000)
+    function setup()
+        mk_fifo()
+        println("Launching satellite")
+        satellite_process = run(launch, wait=false)
+        println("Attmepting to establish uplink...")
+        # opening uplink file waits for a process to open it for writing
+        uplink_fd = open("/tmp/satuplink", "r")
+        println("Established uplink!")
+        println("Attmepting to establish downlink...")
+        downlink_fd = open("/tmp/satdownlink", write=true, create=true)
+        println("Established downlink!")
+        return SocketSim(0.5, satellite_process, uplink_fd, downlink_fd, Control([0.0, 0.0, 0.0]))
+    end
+    function step(sim, state, params, time)
+        downlink(sim.downlink_fd, state, params)
+        uplink_data = uplink(sim.uplink_fd)
+        sim.control = Control(uplink_data["m"])
+        sim.dt = uplink_data["dt"]
+    end
+    function cleanup(sim)
+        kill(sim.satellite_process)
+        println("Killed satellite process")
+    end
+    return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations)
+end
+
+function simulate_helper(setup::Function, step::Function, cleanup::Function, log_init::Function, log_step::Function, max_iterations)
     state = initialize_orbit()
     println("intialized orbit!")
 
@@ -325,42 +379,28 @@ function socket_simulator(launch::Cmd, log_init=default_log_init, log_step=defau
 
     start_time = Epoch(2020, 11, 30)
     time = start_time
-    dt = 0.5                         # Time step, in seconds
 
-    N = 100000
     hist = log_init(state)
     time_hist = [0.0]
 
-    mk_fifo()
-    println("Launching satellite")
-    satellite_process = run(launch, wait=false)
-    println("Attmepting to establish uplink...")
-    # opening uplink file waits for a process to open it for writing
-    uplink_fd = open("/tmp/satuplink", "r")
-    println("Established uplink!")
-    println("Attmepting to establish downlink...")
-    downlink_fd = open("/tmp/satdownlink", write=true, create=true)
-    println("Established downlink!")
-    for i = 1:N-1
+    sim = setup()
+    for i = 1:max_iterations
         update_parameters(state, params, time)
-        downlink(downlink_fd, state, params)
-        uplink_data = uplink(uplink_fd)
-        control = Control(uplink_data["m"])
-        dt = uplink_data["dt"]
-        (state, time) = sim_step(state, params, control, time, dt)
+        step(sim, state, params, time)
+        (state, time) = sim_step(state, params, sim.control, time, sim.dt)
         log_step(hist, state)
         append!(time_hist, time - start_time)
         print("\r\033[K")
         @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
-            i, N, norm(state.ω), state.r[1], state.r[2], state.r[3], params.b[1],
-            params.b[2], params.b[3], dt)
+            i, max_iterations, norm(state.ω), state.r[1], state.r[2], state.r[3], params.b[1],
+            params.b[2], params.b[3], sim.dt)
         if norm(state.ω) < 0.01
             break
         end
     end
-    println("\nSimulation complete!")
-    kill(satellite_process)
-    println("Killed satellite process")
+    print("\n")
+    cleanup(sim)
+    println("Simulation complete!")
 
     hist = reduce(hcat, hist)
     hist = hist'
