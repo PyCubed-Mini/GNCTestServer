@@ -252,22 +252,28 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
     params = Parameters(J, [0.0, 0.0, 0.0])
 
-    t = Epoch(2020, 11, 30)          # Starting time is Nov 30, 2020
+    start_time = Epoch(2020, 11, 30)  # Starting time is Nov 30, 2020
+    t = start_time
     dt = 0.5                         # Time step, in seconds
 
     N = 100000
-    hist = log_init(x, N)
+    hist = log_init(x)
+    time_hist = [0.0]
     for i = 1:N-1
+        update_parameters(x, params, t)
         control = control_step(x, params, control_fn, t)
         (x, t) = sim_step(x, params, control, t, dt)
-        log_step(hist, x, i)
+        log_step(hist, x)
+        append!(time_hist, t-start_time)
+        println("[$i/$N]: norm(ω) = $(norm(x.ω)); r=$(x.r); b=$(params.b); dt=$dt")
         if norm(x.ω) < 0.001
-            hist = hist[1:i, :]
             break
         end
     end
 
-    return hist
+    hist = reduce(hcat, hist)
+    hist = hist'
+    return (hist, time_hist)
 end
 
 function uplink(uplink)
@@ -299,11 +305,13 @@ function socket_simulator(log_init=default_log_init, log_step=default_log_step)
     J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
     params = Parameters(J, [0.0, 0.0, 0.0])
 
-    time = Epoch(2020, 11, 30)          # Starting time is Nov 30, 2020
+    start_time = Epoch(2020, 11, 30)
+    time = start_time
     dt = 0.5                         # Time step, in seconds
 
     N = 100000
-    hist = log_init(state, N)
+    hist = log_init(state)
+    time_hist = [0.0]
 
     println("Attmepting to establish uplink...")
     # opening uplink file waits for a process to open it for writing
@@ -318,15 +326,17 @@ function socket_simulator(log_init=default_log_init, log_step=default_log_step)
         control = Control(uplink_data["m"])
         dt = uplink_data["dt"]
         (state, time) = sim_step(state, params, control, time, dt)
-        log_step(hist, state, i)
+        log_step(hist, state)
+        append!(time_hist, time-start_time)
         println("[$i/$N]: norm(ω) = $(norm(state.ω)); r=$(state.r); b=$(params.b); dt=$dt")
         if norm(state.ω) < 0.01
-            hist = hist[1:i, :]
             break
         end
     end
 
-    return hist
+    hist = reduce(hcat, hist)
+    hist = hist'
+    return (hist, time_hist)
 end
 
 """
@@ -339,11 +349,8 @@ Arguments:
 Returns:
 - hist:        Initialized log of the simulation                         |  Matrix
 """
-function default_log_init(state, iterations)
-    hist = zeros(iterations, 4)
-    hist[1, 1:3] .= state.ω
-    hist[1, 4] = norm(state.ω)
-    return hist
+function default_log_init(state)
+    return [[state.ω; norm(state.ω)]]
 end
 
 """
@@ -352,11 +359,10 @@ Default function to update the log, only logs angular velocity and magnitude.
 Arguments:
 - hist:        Log of the simulation                                     |  Matrix
 - state:       Current state of the system, as a State struct            |  State
-- i:           Current iteration of the simulation                       |  Scalar
 """
-function default_log_step(hist, state, i)
-    hist[i+1, 1:3] .= state.ω
-    hist[i+1, 4] = norm(state.ω)
+function default_log_step(hist, state)
+    point = [state.ω; norm(state.ω)]
+    push!(hist, point)
 end
 
 end
