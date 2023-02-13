@@ -1,9 +1,10 @@
 module GNCTestServer
-using SatelliteDynamics
+import Base: *, +
 using LinearAlgebra
 using MsgPack
+using Printf
+using SatelliteDynamics
 using Sockets
-import Base: *, +
 include("quaternions.jl")
 include("mag_field.jl")
 
@@ -227,7 +228,7 @@ Returns:
 - state:   Updated state of the system, as a State struct            |  State
 - t:       Updated time, as an Epoch struct                          |  Epoch
 """
-function sim_step(state::State, params::Parameters, control::Control, t::Epoch, dt::Float64)::Tuple{State, Epoch}
+function sim_step(state::State, params::Parameters, control::Control, t::Epoch, dt::Float64)::Tuple{State,Epoch}
     state = integrate_state(state, params, control, t, dt)
     t += dt
     return (state, t)
@@ -264,7 +265,7 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
         control = control_step(x, params, control_fn, t)
         (x, t) = sim_step(x, params, control, t, dt)
         log_step(hist, x)
-        append!(time_hist, t-start_time)
+        append!(time_hist, t - start_time)
         println("[$i/$N]: norm(ω) = $(norm(x.ω)); r=$(x.r); b=$(params.b); dt=$dt")
         if norm(x.ω) < 0.001
             break
@@ -298,12 +299,29 @@ function update_parameters(state, params, time)
     params.b = IGRF13(state.r, time)
 end
 
-function socket_simulator(log_init=default_log_init, log_step=default_log_step)
+function mk_fifo()
+    try
+        # remove old fifo, if it exists
+        run(`rm -f /tmp/satuplink`)
+        # create a new fifo
+        run(`mkfifo /tmp/satuplink`)
+    catch e
+        println("Failed to create uplink fifo: $e")
+    end
+    println("Created uplink fifo")
+end
+
+function initialize_params()
+    J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
+    params = Parameters(J, [0.0, 0.0, 0.0])
+    return params
+end
+
+function socket_simulator(launch::Cmd, log_init=default_log_init, log_step=default_log_step)
     state = initialize_orbit()
     println("intialized orbit!")
 
-    J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
-    params = Parameters(J, [0.0, 0.0, 0.0])
+    params = initialize_params()
 
     start_time = Epoch(2020, 11, 30)
     time = start_time
@@ -313,10 +331,14 @@ function socket_simulator(log_init=default_log_init, log_step=default_log_step)
     hist = log_init(state)
     time_hist = [0.0]
 
+    mk_fifo()
+    println("Launching satellite")
+    satellite_process = run(launch, wait=false)
     println("Attmepting to establish uplink...")
     # opening uplink file waits for a process to open it for writing
     uplink_fd = open("/tmp/satuplink", "r")
     println("Established uplink!")
+    println("Attmepting to establish downlink...")
     downlink_fd = open("/tmp/satdownlink", write=true, create=true)
     println("Established downlink!")
     for i = 1:N-1
@@ -327,12 +349,18 @@ function socket_simulator(log_init=default_log_init, log_step=default_log_step)
         dt = uplink_data["dt"]
         (state, time) = sim_step(state, params, control, time, dt)
         log_step(hist, state)
-        append!(time_hist, time-start_time)
-        println("[$i/$N]: norm(ω) = $(norm(state.ω)); r=$(state.r); b=$(params.b); dt=$dt")
+        append!(time_hist, time - start_time)
+        print("\r\033[K")
+        @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
+            i, N, norm(state.ω), state.r[1], state.r[2], state.r[3], params.b[1],
+            params.b[2], params.b[3], dt)
         if norm(state.ω) < 0.01
             break
         end
     end
+    println("\nSimulation complete!")
+    kill(satellite_process)
+    println("Killed satellite process")
 
     hist = reduce(hcat, hist)
     hist = hist'

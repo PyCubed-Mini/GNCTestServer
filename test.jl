@@ -33,7 +33,7 @@ end;
 end
 
 @testset "io" begin
-    (data, time) = Simulator.socket_simulator()
+    (data, time) = Simulator.socket_simulator(`sh runfakesat.sh`)
     display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 
 
