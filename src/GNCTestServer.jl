@@ -379,7 +379,6 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function, log
 
     start_time = Epoch(2020, 11, 30)
     time = start_time
-
     hist = log_init(state)
     time_hist = [0.0]
 
@@ -431,6 +430,4 @@ Arguments:
 function default_log_step(hist, state)
     point = [state.ω; norm(state.ω)]
     push!(hist, point)
-end
-
 end
