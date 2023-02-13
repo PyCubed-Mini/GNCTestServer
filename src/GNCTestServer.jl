@@ -252,22 +252,28 @@ function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
     J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
     params = Parameters(J, [0.0, 0.0, 0.0])
 
-    t = Epoch(2020, 11, 30)          # Starting time is Nov 30, 2020
+    start_time = Epoch(2020, 11, 30)  # Starting time is Nov 30, 2020
+    t = start_time
     dt = 0.5                         # Time step, in seconds
 
     N = 100000
-    hist = log_init(x, N)
+    hist = log_init(x)
+    time_hist = [0.0]
     for i = 1:N-1
+        update_parameters(x, params, t)
         control = control_step(x, params, control_fn, t)
         (x, t) = sim_step(x, params, control, t, dt)
-        log_step(hist, x, i)
+        log_step(hist, x)
+        append!(time_hist, t-start_time)
+        println("[$i/$N]: norm(ω) = $(norm(x.ω)); r=$(x.r); b=$(params.b); dt=$dt")
         if norm(x.ω) < 0.001
-            hist = hist[1:i, :]
             break
         end
     end
 
-    return hist
+    hist = reduce(hcat, hist)
+    hist = hist'
+    return (hist, time_hist)
 end
 
 function uplink(uplink)

@@ -26,27 +26,13 @@ end;
     end
 
 
-    data = Simulator.sim(control_law)
-    display(plot(data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
+    (data, time) = Simulator.sim(control_law)
+    display(plot(time, data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 
 
 end
 
 @testset "io" begin
-    function control_law(state, params, t)
-        ω = state.ω
-        b = params.b
-
-        b̂ = b / norm(b)
-        k = 7e-4
-        M = -k * (I(3) - b̂ * b̂') * ω
-        m = 1 / (dot(b, b)) * cross(b, M)
-        return Simulator.Control(
-            m
-        )
-    end
-
-
     (data, time) = Simulator.socket_simulator()
     display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 
