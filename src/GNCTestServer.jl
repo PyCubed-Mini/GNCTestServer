@@ -431,3 +431,5 @@ function default_log_step(hist, state)
     point = [state.ω; norm(state.ω)]
     push!(hist, point)
 end
+
+end
