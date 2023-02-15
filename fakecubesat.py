@@ -7,7 +7,7 @@ except Exception:
 import GNCTestClient
 
 client = GNCTestClient.GNCTestClient()
-client.register_state("control", [0.0001, 0.00002, 0.0003])
+client.register_state("control", [0.0000001, 0.000000002, 0.00000003])
 client.register_state("ω", [0.1, 0.2, 0.3])
 client.register_state("b", [0.1, 1.1, -0.2])
 

@@ -1,4 +1,4 @@
-from threading import Thread, Lock
+from threading import Thread, Lock, Timer
 import copy
 import msgpack
 import time
@@ -25,10 +25,12 @@ class ThreadSafeState:
 
 class GNCTestClient:
 
-    def __init__(self):
+    def __init__(self, uplink_interval=2.0, downlink_interval=1.0):
         self._state = {}
         self._prev_time = time.time()
         self._log_fd = open("/tmp/satlog.txt", "w")
+        self._uplink_interval = uplink_interval
+        self._downlink_interval = downlink_interval
     
     def register_state(self, key, value):
         self._state[key] = ThreadSafeState(value)
@@ -53,9 +55,7 @@ class GNCTestClient:
             "m": self["control"],
             "dt": time.time() - self._prev_time
         }
-        self.log(str(control))
         payload = msgpack.packb(control, use_bin_type=True)
-        self.log(str(len(payload)))
 
         self._prev_time = time.time()
 
@@ -66,18 +66,32 @@ class GNCTestClient:
         self._uplink_fd.flush()
     
     def communication_thread(self):
+        downlink_time = time.time()
+        uplink_time = time.time()
         while True:
-            try:
-                self.downlink()
-            except Exception as e:
-                self.log(f'Error reading downlinked data:\n {e}')
-            try:
-                self.uplink()
-            except Exception as e:
-                self.log(f'Error sending uplink data:\n {e}')
-            self.log("Uplink and downlink")
+            if time.time() > downlink_time:
+                try:
+                    self.downlink()
+                except Exception as e:
+                    self.log(f'Error reading downlinked data:\n {e}')
+                downlink_time += self._downlink_interval
+            if time.time() > uplink_time:
+                try:
+                    self.uplink()
+                except Exception as e:
+                    self.log(f'Error sending uplink data:\n {e}')
+                uplink_time += self._uplink_interval
 
-            time.sleep(TIME_INTERVAL)
+            next_uplink = uplink_time - time.time()            
+            next_downlink = downlink_time - time.time()
+
+            sleep_time = min(next_uplink, next_downlink)
+
+            if sleep_time < 0:
+                self.log(f'Warning: sleep time is negative: {sleep_time}')
+                exit(1)
+
+            time.sleep(sleep_time)
     
     def launch(self):
         self._uplink_fd = open(UPLINK_FILE, "wb")
