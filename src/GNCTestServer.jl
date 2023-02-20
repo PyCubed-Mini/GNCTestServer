@@ -382,28 +382,35 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function, log
     hist = log_init(state)
     time_hist = [0.0]
 
-    sim = setup()
-    for i = 1:max_iterations
-        update_parameters(state, params, time)
-        step(sim, state, params, time)
-        (state, time) = sim_step(state, params, sim.control, time, sim.dt)
-        log_step(hist, state)
-        append!(time_hist, time - start_time)
-        print("\r\033[K")
-        @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
-            i, max_iterations, norm(state.ω), state.r[1], state.r[2], state.r[3], params.b[1],
-            params.b[2], params.b[3], sim.dt)
-        if norm(state.ω) < 0.01
-            break
+    try  
+        sim = setup()
+        for i = 1:max_iterations
+            update_parameters(state, params, time)
+            step(sim, state, params, time)
+            (state, time) = sim_step(state, params, sim.control, time, sim.dt)
+            log_step(hist, state)
+            append!(time_hist, time - start_time)
+            print("\r\033[K")
+            @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
+                i, max_iterations, norm(state.ω), state.r[1], state.r[2], state.r[3], params.b[1],
+                params.b[2], params.b[3], sim.dt)
+            if norm(state.ω) < 0.01
+                break
+            end
         end
-    end
-    print("\n")
-    cleanup(sim)
-    println("Simulation complete!")
+        print("\n")
+        cleanup(sim)
+        println("Simulation complete!")
 
-    hist = reduce(hcat, hist)
-    hist = hist'
-    return (hist, time_hist)
+        hist = reduce(hcat, hist)
+        hist = hist'
+        return (hist, time_hist)
+    catch e 
+        println("Simulation failed: $e")
+        cleanup(sim)
+        return
+    end
+
 end
 
 """
