@@ -2,7 +2,7 @@ using Test
 using LinearAlgebra
 using Plots
 using Random
-include("src/GNCTestServer.jl")
+include("../src/GNCTestServer.jl")
 
 @testset "basic single variable integration" begin
     idx = x -> x

@@ -8,7 +8,7 @@ using Sockets
 include("quaternions.jl")
 include("mag_field.jl")
 
-export sim, Control, Parameters, sccket_simulator
+export simulator, Control, Parameters 
 
 *(v::NamedTuple, s::Number) = map(y -> s * y, v)
 *(s::Number, v::NamedTuple) = map(y -> s * y, v)
@@ -234,53 +234,17 @@ function sim_step(state::State, params::Parameters, control::Control, t::Epoch, 
     return (state, t)
 end
 
-"""
-Runs the simulation, given a control function.
-Optionally takes in functions to initialize and update the log.
-
-Arguments:
-- control_fn:  Function to compute control input, given state, params, and time      |  Function
-- log_init:    (Optional) Function to initialize the log, given the number of steps  |  Function
-- log_step:    (Optional) Function to update the log, given the current state        |  Function
-
-Returns:
-- hist:        Generated log of the simulation
-"""
-function sim(control_fn, log_init=default_log_init, log_step=default_log_step)
-    x = initialize_orbit()
-    println("intialized orbit!")
-
-    J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
-    params = Parameters(J, [0.0, 0.0, 0.0])
-
-    start_time = Epoch(2020, 11, 30)  # Starting time is Nov 30, 2020
-    t = start_time
-    dt = 0.5                         # Time step, in seconds
-
-    N = 100000
-    hist = log_init(x)
-    time_hist = [0.0]
-    for i = 1:N-1
-        update_parameters(x, params, t)
-        control = control_step(x, params, control_fn, t)
-        (x, t) = sim_step(x, params, control, t, dt)
-        log_step(hist, x)
-        append!(time_hist, t - start_time)
-        println("[$i/$N]: norm(ω) = $(norm(x.ω)); r=$(x.r); b=$(params.b); dt=$dt")
-        if norm(x.ω) < 0.001
-            break
+function uplink(uplink)
+    try
+        str = read(uplink, MAGIC_PACKET_SIZE)
+        return MsgPack.unpack(str)
+    catch e 
+        if isa(e, EOFError)
+            throw(error("Satellite uplink pipe closed, check /tmp/satlog.txt for details"))
+        else
+            throw(e)
         end
     end
-
-    hist = reduce(hcat, hist)
-    hist = hist'
-    return (hist, time_hist)
-end
-
-function uplink(uplink)
-    # size of the uplinked packets, must be constant
-    str = read(uplink, MAGIC_PACKET_SIZE)
-    return MsgPack.unpack(str)
 end
 
 function downlink(fd, state, params)
@@ -322,6 +286,18 @@ mutable struct FunctionSim
     control::Control
 end
 
+"""
+Runs the simulation, given a control function.
+Optionally takes in functions to initialize and update the log.
+
+Arguments:
+- control_fn:  Function to compute control input, given state, params, and time      |  Function
+- log_init:    (Optional) Function to initialize the log, given the number of steps  |  Function
+- log_step:    (Optional) Function to update the log, given the current state        |  Function
+
+Returns:
+- hist:        Generated log of the simulation
+"""
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step, max_iterations=1000, dt=0.5)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
@@ -359,6 +335,9 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         return SocketSim(0.5, satellite_process, uplink_fd, downlink_fd, Control([0.0, 0.0, 0.0]))
     end
     function step(sim, state, params, time)
+        if sim.satellite_process.exitcode >= 0 
+            throw(error("Satellite process exited with code $(sim.satellite_process.exitcode), check /tmp/satlog.txt for details"))
+        end
         downlink(sim.downlink_fd, state, params)
         uplink_data = uplink(sim.uplink_fd)
         sim.control = Control(uplink_data["m"])
@@ -383,27 +362,34 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function, log
     time_hist = [0.0]
 
     sim = setup()
-    for i = 1:max_iterations
-        update_parameters(state, params, time)
-        step(sim, state, params, time)
-        (state, time) = sim_step(state, params, sim.control, time, sim.dt)
-        log_step(hist, state)
-        append!(time_hist, time - start_time)
-        print("\r\033[K")
-        @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
-            i, max_iterations, norm(state.ω), state.r[1], state.r[2], state.r[3], params.b[1],
-            params.b[2], params.b[3], sim.dt)
-        if norm(state.ω) < 0.01
-            break
+    try  
+        for i = 1:max_iterations
+            update_parameters(state, params, time)
+            step(sim, state, params, time)
+            (state, time) = sim_step(state, params, sim.control, time, sim.dt)
+            log_step(hist, state)
+            append!(time_hist, time - start_time)
+            print("\r\033[K")
+            @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
+                i, max_iterations, norm(state.ω), state.r[1], state.r[2], state.r[3], params.b[1],
+                params.b[2], params.b[3], sim.dt)
+            if norm(state.ω) < 0.01
+                break
+            end
         end
-    end
-    print("\n")
-    cleanup(sim)
-    println("Simulation complete!")
+        print("\n")
+        cleanup(sim)
+        println("Simulation complete!")
 
-    hist = reduce(hcat, hist)
-    hist = hist'
-    return (hist, time_hist)
+        hist = reduce(hcat, hist)
+        hist = hist'
+        return (hist, time_hist)
+    catch e 
+        println("Simulation failed: $e")
+        cleanup(sim)
+        throw(e)
+    end
+
 end
 
 """
