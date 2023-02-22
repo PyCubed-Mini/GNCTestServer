@@ -1,7 +1,9 @@
-from threading import Thread, Lock, Timer
+from threading import Thread, Lock
 import copy
 import msgpack
 import time
+import os
+import signal
 
 DOWNLINK_FILE = "/tmp/satdownlink"
 UPLINK_FILE = "/tmp/satuplink"
@@ -89,7 +91,7 @@ class GNCTestClient:
 
             if sleep_time < 0:
                 self.log(f'Warning: sleep time is negative: {sleep_time}')
-                exit(1)
+                os.kill(os.getpid(), signal.SIGINT)
 
             time.sleep(sleep_time)
     

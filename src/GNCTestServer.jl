@@ -235,9 +235,16 @@ function sim_step(state::State, params::Parameters, control::Control, t::Epoch, 
 end
 
 function uplink(uplink)
-    # size of the uplinked packets, must be constant
-    str = read(uplink, MAGIC_PACKET_SIZE)
-    return MsgPack.unpack(str)
+    try
+        str = read(uplink, MAGIC_PACKET_SIZE)
+        return MsgPack.unpack(str)
+    catch e 
+        if isa(e, EOFError)
+            throw(error("Satellite uplink pipe closed, check /tmp/satlog.txt for details"))
+        else
+            throw(e)
+        end
+    end
 end
 
 function downlink(fd, state, params)
@@ -329,7 +336,7 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
     end
     function step(sim, state, params, time)
         if sim.satellite_process.exitcode >= 0 
-            throw(error("Satellite process exited with code $(sim.satellite_process.exitcode)"))
+            throw(error("Satellite process exited with code $(sim.satellite_process.exitcode), check /tmp/satlog.txt for details"))
         end
         downlink(sim.downlink_fd, state, params)
         uplink_data = uplink(sim.uplink_fd)
