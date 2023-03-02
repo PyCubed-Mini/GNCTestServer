@@ -1,3 +1,5 @@
+# Version 0.1.0
+
 module GNCTestServer
 import Base: *, +
 using LinearAlgebra
