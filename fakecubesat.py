@@ -28,5 +28,8 @@ def bcross(b, ω, k=7e-4):
 client.launch()
 
 while True:
+    with open('./output.txt', 'w') as f:
+        f.write(f'hi+{time.time()}\n')
+        f.flush()
     client["control"] = bcross(client["b"], client["ω"])
     time.sleep(2)

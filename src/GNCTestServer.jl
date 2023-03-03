@@ -9,8 +9,9 @@ using SatelliteDynamics
 using Sockets
 include("quaternions.jl")
 include("mag_field.jl")
+include("communication.jl")
 
-export simulator, Control, Parameters 
+export simulator, Control, Parameters
 
 *(v::NamedTuple, s::Number) = map(y -> s * y, v)
 *(s::Number, v::NamedTuple) = map(y -> s * y, v)
@@ -33,7 +34,6 @@ mutable struct Control
     m::Array{Float64,1} # Control input
 end
 
-MAGIC_PACKET_SIZE = 43
 
 """
 Rung-Kutta 4th order integrator
@@ -236,45 +236,8 @@ function sim_step(state::State, params::Parameters, control::Control, t::Epoch, 
     return (state, t)
 end
 
-function uplink(uplink)
-    try
-        str = read(uplink, MAGIC_PACKET_SIZE)
-        return MsgPack.unpack(str)
-    catch e 
-        if isa(e, EOFError)
-            throw(error("Satellite uplink pipe closed, check /tmp/satlog.txt for details"))
-        else
-            throw(e)
-        end
-    end
-end
-
-function downlink(fd, state, params)
-    sensors = Dict(
-        :ω => state.ω,
-        :b => params.b,
-    )
-    truncate(fd, 0)
-    seek(fd, 0)
-    payload = MsgPack.pack(sensors)
-    write(fd, payload)
-    flush(fd)
-end
-
 function update_parameters(state, params, time)
     params.b = IGRF13(state.r, time)
-end
-
-function mk_fifo()
-    try
-        # remove old fifo, if it exists
-        run(`rm -f /tmp/satuplink`)
-        # create a new fifo
-        run(`mkfifo /tmp/satuplink`)
-    catch e
-        println("Failed to create uplink fifo: $e")
-    end
-    println("Created uplink fifo")
 end
 
 function initialize_params()
@@ -304,7 +267,7 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
     end
-    function step(sim, state, params, time)
+    function step(sim, state, params, time, i)
         sim.control = control(state, params, time)
     end
     function cleanup(sim)
@@ -317,35 +280,49 @@ end
 mutable struct SocketSim
     dt::Float64
     satellite_process::Base.Process
-    uplink_fd::IOStream
-    downlink_fd::IOStream
+    uplink::Array{UInt8}
+    uplink_ptr::Any # Kept to prevent garbage collection
+    uplink_sem::Any
+    downlink::Array{UInt8}
+    downlink_ptr::Any # Kept to prevent garbage collection
+    downlink_sem::Any
     control::Control
 end
 
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step, max_iterations=1000)
     function setup()
-        mk_fifo()
-        println("Launching satellite")
+        println("Creating shared memory and semaphores...")
+        uplink, uplink_ptr = mk_shared("gnc_uplink", 128)
+        uplink_sem = mk_semaphore(67)
+        downlink, downlink_ptr = mk_shared("gnc_downlink", 128)
+        downlink_sem = mk_semaphore(68)
+        println("Launching satellite...")
+        sleep(0.1)
         satellite_process = run(launch, wait=false)
-        println("Attmepting to establish uplink...")
-        # opening uplink file waits for a process to open it for writing
-        uplink_fd = open("/tmp/satuplink", "r")
-        println("Established uplink!")
-        println("Attmepting to establish downlink...")
-        downlink_fd = open("/tmp/satdownlink", write=true, create=true)
-        println("Established downlink!")
-        return SocketSim(0.5, satellite_process, uplink_fd, downlink_fd, Control([0.0, 0.0, 0.0]))
+        return SocketSim(
+            0.5,
+            satellite_process,
+            uplink,
+            uplink_ptr,
+            uplink_sem,
+            downlink,
+            downlink_ptr,
+            downlink_sem,
+            Control([0.0, 0.0, 0.0])
+        )
     end
-    function step(sim, state, params, time)
-        if sim.satellite_process.exitcode >= 0 
+    function step(sim, state, params, time, i)
+        if sim.satellite_process.exitcode >= 0
             throw(error("Satellite process exited with code $(sim.satellite_process.exitcode), check /tmp/satlog.txt for details"))
         end
-        downlink(sim.downlink_fd, state, params)
-        uplink_data = uplink(sim.uplink_fd)
+        downlink(sim.downlink, sim.downlink_sem, state, params)
+        uplink_data = uplink(sim.uplink, sim.uplink_sem, i)
         sim.control = Control(uplink_data["m"])
         sim.dt = uplink_data["dt"]
     end
     function cleanup(sim)
+        sim.uplink_sem.remove()
+        sim.downlink_sem.remove()
         kill(sim.satellite_process)
         println("Killed satellite process")
     end
@@ -358,16 +335,17 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function, log
 
     params = initialize_params()
 
+    sim = setup()
+
     start_time = Epoch(2020, 11, 30)
     time = start_time
     hist = log_init(state)
     time_hist = [0.0]
 
-    sim = setup()
-    try  
+    try
         for i = 1:max_iterations
             update_parameters(state, params, time)
-            step(sim, state, params, time)
+            step(sim, state, params, time, i)
             (state, time) = sim_step(state, params, sim.control, time, sim.dt)
             log_step(hist, state)
             append!(time_hist, time - start_time)
@@ -386,7 +364,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function, log
         hist = reduce(hcat, hist)
         hist = hist'
         return (hist, time_hist)
-    catch e 
+    catch e
         println("Simulation failed: $e")
         cleanup(sim)
         throw(e)
