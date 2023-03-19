@@ -33,21 +33,25 @@ class ThreadSafeState:
 class GNCTestClient:
 
     def __init__(self, uplink_interval=2.0, downlink_interval=1.0):
-        self._state = {}
-        self._prev_time = time.time()
-        self._log_fd = open("/tmp/satlog.txt", "w")
-        self._uplink_interval = uplink_interval
-        self._downlink_interval = downlink_interval
+        try:
+            self._state = {}
+            self._prev_time = time.time()
+            self._log_fd = open("/tmp/satlog.txt", "w")
+            self._uplink_interval = uplink_interval
+            self._downlink_interval = downlink_interval
 
-        self._uplink_shm = shared_memory.SharedMemory(name=UPLINK_SHARED_MEM)
-        self._uplink_buf = self._uplink_shm.buf
-        self._uplink_sem = sysv_ipc.Semaphore(UPLINK_SEMAPHORE)
-        self._uplink_id = 1
+            self._uplink_shm = shared_memory.SharedMemory(name=UPLINK_SHARED_MEM)
+            self._uplink_buf = self._uplink_shm.buf
+            self._uplink_sem = sysv_ipc.Semaphore(UPLINK_SEMAPHORE)
+            self._uplink_id = 1
 
-        self._downlink_shm = shared_memory.SharedMemory(
+            self._downlink_shm = shared_memory.SharedMemory(
             name=DOWNLINK_SHARED_MEM)
-        self._downlink_buf = self._downlink_shm.buf
-        self._downlink_sem = sysv_ipc.Semaphore(DOWNLINK_SEMAPHORE)
+            self._downlink_buf = self._downlink_shm.buf
+            self._downlink_sem = sysv_ipc.Semaphore(DOWNLINK_SEMAPHORE)
+        except Exception as e:
+            self.log(f'Error initializing client:\n {e}')
+            exit(1)
 
     def register_state(self, key, value):
         self._state[key] = ThreadSafeState(value)
@@ -59,7 +63,6 @@ class GNCTestClient:
         self._state[key].set(value)
 
     def downlink(self):
-        self.log('Downlink')
         with self._downlink_sem:
             size = self._downlink_buf[0]
             if size != 0:
@@ -69,7 +72,6 @@ class GNCTestClient:
                     self[key] = value
 
     def uplink(self):
-        self.log('uplink')
         control = {
             "m": self["control"],
             "dt": time.time() - self._prev_time
@@ -79,20 +81,14 @@ class GNCTestClient:
         self._prev_time = time.time()
 
         with self._uplink_sem:
-            self.log(f'control #{self._uplink_id}')
             self._uplink_buf[0:8] = self._uplink_id.to_bytes(8, 'little')
             self._uplink_buf[8:len(payload)+8] = payload
             self._uplink_id += 1
 
     def communication_thread(self):
-        self.log(f'Is log broken?')
-        with open('./output_thread.txt', 'w') as f:
-            f.write(f'hi+{time.time()}\n')
-            f.flush()
         downlink_time = time.time()
         uplink_time = time.time()
         while True:
-            self.log(f'Starting loop')
             if time.time() > downlink_time:
                 try:
                     self.downlink()
@@ -115,21 +111,22 @@ class GNCTestClient:
                 self.log(f'Warning: sleep time is negative: {sleep_time}')
                 os.kill(os.getpid(), signal.SIGINT)
 
-            self.log(f'Sleeping for {sleep_time}s')
             time.sleep(sleep_time)
     
     def com_thread_wrapper(self):
         try:
-            self.communication_thread(self)
+            self.communication_thread()
         except Exception as e:
             self.log(e)
 
     def launch(self):
+        time.sleep(10.0)
+        self.log('Launching communication thread...')
         t = Thread(target=self.com_thread_wrapper,
                    name="communication_thread")
         t.start()
 
     def log(self, text):
-        self._log_fd.write(bytes(text))
+        self._log_fd.write(text)
         self._log_fd.write("\n")
         self._log_fd.flush()

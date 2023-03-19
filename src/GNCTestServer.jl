@@ -299,6 +299,7 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         println("Launching satellite...")
         sleep(0.1)
         satellite_process = run(launch, wait=false)
+        println("Launched")
         return SocketSim(
             0.5,
             satellite_process,

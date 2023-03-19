@@ -52,16 +52,18 @@ function downlink(buf, buf_sem, state, params)
 end
 
 function uplink(buf, buf_sem, itteration)
+    start = time()
     while true
         id = reinterpret(Int64, buf[1:8])[1]
         if id == itteration
             break
         elseif id >= itteration
-            throw(error("Simulation speed to high, satellite ahead of server"))
+            throw(error("Simulation speed to high, satellite ahead of server (sat: $id, server: $itteration)"))
         end
         sleep(0.01)
     end
     @pywith buf_sem as _ begin
+        println(" $(time() - start)s")
         payload = buf[9:end]
         res = MsgPack.unpack(payload)
         return res
