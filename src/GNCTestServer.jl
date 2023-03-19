@@ -322,9 +322,9 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         sim.dt = uplink_data["dt"]
     end
     function cleanup(sim)
+        kill(sim.satellite_process)
         sim.uplink_sem.remove()
         sim.downlink_sem.remove()
-        kill(sim.satellite_process)
         println("Killed satellite process")
     end
     return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations)

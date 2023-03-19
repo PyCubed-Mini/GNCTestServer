@@ -90,16 +90,10 @@ class GNCTestClient:
         uplink_time = time.time()
         while True:
             if time.time() > downlink_time:
-                try:
-                    self.downlink()
-                except Exception as e:
-                    self.log(f'Error reading downlinked data:\n {e}')
+                self.downlink()
                 downlink_time += self._downlink_interval
             if time.time() > uplink_time:
-                try:
-                    self.uplink()
-                except Exception as e:
-                    self.log(f'Error sending uplink data:\n {e}')
+                self.uplink()
                 uplink_time += self._uplink_interval
 
             next_uplink = uplink_time - time.time()
