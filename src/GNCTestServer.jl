@@ -10,20 +10,9 @@ using Sockets
 include("quaternions.jl")
 include("mag_field.jl")
 include("communication.jl")
+include("satellite_models.jl")
 
-export simulator, Control, Parameters
-
-*(v::NamedTuple, s::Number) = map(y -> s * y, v)
-*(s::Number, v::NamedTuple) = map(y -> s * y, v)
-+(a::NamedTuple, b::NamedTuple) = map(+, a, b)
-
-const State = NamedTuple{
-    (:r, :v, :q, :ω),
-    Tuple{Array{Float64,1},
-        Array{Float64,1},
-        Array{Float64,1},
-        Array{Float64,1}}
-}
+export simulator, Control, Parameters, RBState
 
 mutable struct Parameters
     J::Array{Float64,2} # Inertia matrix
@@ -61,13 +50,13 @@ Arguments:
 Returns:
 - state: the derivative of the state                                     | State
 """
-function dynamics(state::State, parameters::Parameters, control::Control, t::Epoch)::State
+function dynamics(state::RBState, parameters::Parameters, control::Control, t::Epoch)::RBState
     u = cross(control.m, parameters.b)
-    return (
-        r=state.v,
-        v=accel_perturbations(t, state.r, state.v),
-        q=qdot(state.q, state.ω),
-        ω=parameters.J \ (u - cross(state.ω, parameters.J * state.ω))
+    return RBState(
+        state.velocity,
+        accel_perturbations(t, state.position, state.velocity),
+        qdot(state.attitude, state.angular_velocity),
+        parameters.J \ (u - cross(state.angular_velocity, parameters.J * state.angular_velocity))
     )
 end
 
@@ -84,15 +73,12 @@ Arguments
 Returns
 - state: the state of the spacecraft after the integration               | State
 """
-function integrate_state(state::State, parameters::Parameters, control::Control, t::Epoch, dt::Float64)::State
-    state⁺ = rk4(state, t, dt, (state, t) -> dynamics(state, parameters, control, t))
-
-    return (
-        r=state⁺.r,
-        v=state⁺.v,
-        q=state⁺.q / norm(state⁺.q), # normalize the quaternion
-        ω=state⁺.ω
-    )
+function integrate_state(state::RBState, parameters::Parameters, control::Control, t::Epoch, dt::Float64)::RBState
+    function time_dynamics(state::RBState, t)
+        return dynamics(state, parameters, control, t)
+    end
+    new_state = rk4(state, t, dt, time_dynamics)
+    return renorm(new_state)
 end
 
 """
@@ -106,6 +92,8 @@ function accel_perturbations(epc::Epoch, r, v;
     coef_srp::Real=1.8, n_grav::Integer=10, m_grav::Integer=10, third_body::Bool=true)
 
     # These functions don't like static, so we gotta adjust
+    r = Vector(r)
+    v = Vector(v)
     x = [r; v]
 
     # Compute ECI to ECEF Transformation -> IAU2010 Theory
@@ -140,7 +128,7 @@ function accel_perturbations(epc::Epoch, r, v;
         a += accel_thirdbody_moon(x, r_moon)
     end
 
-    return (a)
+    return a
 end
 
 """
@@ -161,7 +149,7 @@ Arguments:
 Returns:
 - x:  Initial state, as (r, v, q, ω)                                               |  State
 """
-function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothing, Rₑ=6378.1363e3, μ=3.9860044188e14)::State
+function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothing, Rₑ=6378.1363e3, μ=3.9860044188e14)::RBState
 
     ### POSITION ###
 
@@ -194,7 +182,7 @@ function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothi
     # If unspecified, generate a random starting angular velocity
     ω₀ = !isnothing(ω) ? ω : 0.5 * randn(3)
 
-    return (r=r₀, v=v₀, q=q₀, ω=ω₀)
+    return RBState(r₀, v₀, q₀, ω₀)
 end
 
 """
@@ -210,7 +198,7 @@ Arguments:
 Returns:
 - control: Control input of the Satellite                            |  Control
 """
-function control_step(state::State, params::Parameters, control_fn, t::Epoch)::Control
+function control_step(state, params::Parameters, control_fn, t::Epoch)::Control
     params.b = IGRF13(state.r, t)
     return control_fn(state, params, t)
 end
@@ -230,14 +218,14 @@ Returns:
 - state:   Updated state of the system, as a State struct            |  State
 - t:       Updated time, as an Epoch struct                          |  Epoch
 """
-function sim_step(state::State, params::Parameters, control::Control, t::Epoch, dt::Float64)::Tuple{State,Epoch}
+function sim_step(state::RBState, params::Parameters, control::Control, t::Epoch, dt::Float64)::Tuple{Any,Epoch}
     state = integrate_state(state, params, control, t, dt)
     t += dt
     return (state, t)
 end
 
 function update_parameters(state, params, time)
-    params.b = IGRF13(state.r, time)
+    params.b = IGRF13(state.position, time)
 end
 
 function initialize_params()
@@ -330,6 +318,12 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
     return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations)
 end
 
+function print_iteration(i, max_iterations, state, params, sim)
+    @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
+        i, max_iterations, norm(state.angular_velocity), state.position[1], state.position[2], state.position[3], params.b[1],
+        params.b[2], params.b[3], sim.dt)
+end
+
 function simulate_helper(setup::Function, step::Function, cleanup::Function, log_init::Function, log_step::Function, max_iterations)
     state = initialize_orbit()
     println("intialized orbit!")
@@ -351,10 +345,8 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function, log
             log_step(hist, state)
             append!(time_hist, time - start_time)
             print("\r\033[K")
-            @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
-                i, max_iterations, norm(state.ω), state.r[1], state.r[2], state.r[3], params.b[1],
-                params.b[2], params.b[3], sim.dt)
-            if norm(state.ω) < 0.01
+            print_iteration(i, max_iterations, state, params, sim)
+            if norm(state.attitude) < 0.01
                 break
             end
         end
@@ -384,7 +376,7 @@ Returns:
 - hist:        Initialized log of the simulation                         |  Matrix
 """
 function default_log_init(state)
-    return [[state.ω; norm(state.ω)]]
+    return [[state.attitude; norm(state.attitude)]]
 end
 
 """
@@ -395,7 +387,7 @@ Arguments:
 - state:       Current state of the system, as a State struct            |  State
 """
 function default_log_step(hist, state)
-    point = [state.ω; norm(state.ω)]
+    point = [state.attitude; norm(state.attitude)]
     push!(hist, point)
 end
 

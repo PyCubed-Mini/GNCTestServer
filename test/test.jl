@@ -13,7 +13,7 @@ end;
 @testset "detumbling" begin
     Random.seed!(1234)
     function control_law(state, params, t)
-        ω = state.ω
+        ω = state.angular_velocity
         b = params.b
 
         b̂ = b / norm(b)
