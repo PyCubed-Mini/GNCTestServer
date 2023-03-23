@@ -38,7 +38,7 @@ end
 function downlink(buf, buf_sem, state, params)
     @pywith buf_sem as _ begin
         sensors = Dict(
-            :ω => state.ω,
+            :ω => state.angular_velocity,
             :b => params.b,
         )
         payload = MsgPack.pack(sensors)
@@ -60,7 +60,7 @@ function uplink(buf, buf_sem, itteration)
         elseif id >= itteration
             throw(error("Simulation speed to high, satellite ahead of server (sat: $id, server: $itteration)"))
         end
-        sleep(0.01)
+        sleep(0.0001)
     end
     @pywith buf_sem as _ begin
         println(" $(time() - start)s")
