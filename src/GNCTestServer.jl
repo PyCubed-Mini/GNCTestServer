@@ -251,7 +251,7 @@ Arguments:
 Returns:
 - hist:        Generated log of the simulation
 """
-function simulate(control::Function; log_init=default_log_init, log_step=default_log_step, max_iterations=1000, dt=0.5)
+function simulate(control::Function; log_init=default_log_init, log_step=default_log_step, terminate=default_terminate, max_iterations=1000, dt=0.5)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
     end
@@ -261,7 +261,7 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
     function cleanup(sim)
         return
     end
-    return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations)
+    return simulate_helper(setup, step, cleanup, log_init, log_step, terminate, max_iterations)
 
 end
 
@@ -277,7 +277,7 @@ mutable struct SocketSim
     control::Control
 end
 
-function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step, max_iterations=1000)
+function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step, terminate=default_terminate, max_iterations=1000)
     function setup()
         println("Creating shared memory and semaphores...")
         uplink, uplink_ptr = mk_shared("gnc_uplink", 128)
@@ -315,7 +315,7 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         sim.downlink_sem.remove()
         println("Killed satellite process")
     end
-    return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations)
+    return simulate_helper(setup, step, cleanup, log_init, log_step, terminate, max_iterations)
 end
 
 function print_iteration(i, max_iterations, state, params, sim)
@@ -324,7 +324,7 @@ function print_iteration(i, max_iterations, state, params, sim)
         params.b[2], params.b[3], sim.dt)
 end
 
-function simulate_helper(setup::Function, step::Function, cleanup::Function, log_init::Function, log_step::Function, max_iterations)
+function simulate_helper(setup::Function, step::Function, cleanup::Function, log_init::Function, log_step::Function, terminate::Function, max_iterations)
     state = initialize_orbit()
     println("intialized orbit!")
 
@@ -346,7 +346,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function, log
             append!(time_hist, time - start_time)
             print("\r\033[K")
             print_iteration(i, max_iterations, state, params, sim)
-            if norm(state.attitude) < 0.01
+            if terminate(state)
                 break
             end
         end
@@ -389,6 +389,10 @@ Arguments:
 function default_log_step(hist, state)
     point = [state.angular_velocity; norm(state.angular_velocity)]
     push!(hist, point)
+end
+
+function default_terminate(state)
+    return norm(state.angular_velocity) < 0.01
 end
 
 end
