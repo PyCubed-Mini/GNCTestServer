@@ -376,7 +376,7 @@ Returns:
 - hist:        Initialized log of the simulation                         |  Matrix
 """
 function default_log_init(state)
-    return [[state.attitude; norm(state.attitude)]]
+    return [[state.angular_velocity; norm(state.angular_velocity)]]
 end
 
 """
@@ -387,7 +387,7 @@ Arguments:
 - state:       Current state of the system, as a State struct            |  State
 """
 function default_log_step(hist, state)
-    point = [state.attitude; norm(state.attitude)]
+    point = [state.angular_velocity; norm(state.angular_velocity)]
     push!(hist, point)
 end
 

@@ -38,7 +38,7 @@ end
 function downlink(buf, buf_sem, state, params)
     @pywith buf_sem as _ begin
         sensors = Dict(
-            :ω => state.attitude,
+            :ω => state.angular_velocity,
             :b => params.b,
         )
         payload = MsgPack.pack(sensors)
