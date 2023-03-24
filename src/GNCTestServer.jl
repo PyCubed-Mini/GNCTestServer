@@ -251,7 +251,7 @@ Arguments:
 Returns:
 - hist:        Generated log of the simulation
 """
-function simulate(control::Function; log_init=default_log_init, log_step=default_log_step, max_iterations=1000, dt=0.5)
+function simulate(control::Function; log_init=default_log_init, log_step=default_log_step, max_iterations=1000, dt=0.5, measurement::Function, initial_state)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
     end
@@ -261,7 +261,7 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
     function cleanup(sim)
         return
     end
-    return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations)
+    return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations, measurement::Function, initial_state)
 
 end
 
@@ -277,7 +277,7 @@ mutable struct SocketSim
     control::Control
 end
 
-function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step, max_iterations=1000)
+function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step, max_iterations=1000, measurement::Function, initial_state)
     function setup()
         println("Creating shared memory and semaphores...")
         uplink, uplink_ptr = mk_shared("gnc_uplink", 128)
@@ -315,7 +315,7 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         sim.downlink_sem.remove()
         println("Killed satellite process")
     end
-    return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations)
+    return simulate_helper(setup, step, cleanup, log_init, log_step, max_iterations, measurement, initial_state)
 end
 
 function print_iteration(i, max_iterations, state, params, sim)
@@ -324,11 +324,13 @@ function print_iteration(i, max_iterations, state, params, sim)
         params.b[2], params.b[3], sim.dt)
 end
 
-function simulate_helper(setup::Function, step::Function, cleanup::Function, log_init::Function, log_step::Function, max_iterations)
-    state = initialize_orbit()
+function simulate_helper(setup::Function, step::Function, cleanup::Function, log_init::Function, log_step::Function, max_iterations, measurement::Function, initial_state)
+    # state = initialize_orbit()
+    state = initial_state.state
     println("intialized orbit!")
 
-    params = initialize_params()
+    # params = initialize_params()
+    params = initial_state.params
 
     sim = setup()
 
