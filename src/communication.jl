@@ -35,12 +35,10 @@ function mk_semaphore(key)
 end
 
 
-function downlink(buf, buf_sem, state, params)
+function downlink(buf, buf_sem, measurement)
+    @assert measurement isa Dict
     @pywith buf_sem as _ begin
-        sensors = Dict(
-            :ω => state.angular_velocity,
-            :b => params.b,
-        )
+        sensors = measurement
         payload = MsgPack.pack(sensors)
         if length(payload) + 1 > length(buf)
             psize = length(payload)

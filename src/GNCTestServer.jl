@@ -300,11 +300,11 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
             Control([0.0, 0.0, 0.0])
         )
     end
-    function step(sim, state, params, time, i)
+    function step(sim, measurement, time, i)
         if sim.satellite_process.exitcode >= 0
             throw(error("Satellite process exited with code $(sim.satellite_process.exitcode), check /tmp/satlog.txt for details"))
         end
-        downlink(sim.downlink, sim.downlink_sem, state, params)
+        downlink(sim.downlink, sim.downlink_sem, measurement)
         uplink_data = uplink(sim.uplink, sim.uplink_sem, i)
         sim.control = Control(uplink_data["m"])
         sim.dt = uplink_data["dt"]
