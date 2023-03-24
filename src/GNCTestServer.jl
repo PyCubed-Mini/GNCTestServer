@@ -255,8 +255,8 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
     end
-    function step(sim, state, params, time, i)
-        sim.control = control(state, params, time)
+    function step(sim, measurement, time, i)
+        sim.control = control(measurement, time)
     end
     function cleanup(sim)
         return
@@ -342,7 +342,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function, log
     try
         for i = 1:max_iterations
             update_parameters(state, params, time)
-            step(sim, state, params, time, i)
+            step(sim, measurement(state, params), time, i)
             (state, time) = sim_step(state, params, sim.control, time, sim.dt)
             log_step(hist, state)
             append!(time_hist, time - start_time)
