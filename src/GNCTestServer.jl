@@ -10,7 +10,7 @@ using Sockets
 include("quaternions.jl")
 include("mag_field.jl")
 include("communication.jl")
-include("satellite_models.jl")
+include("RBState.jl")
 
 export simulator, Control, Parameters, RBState
 
