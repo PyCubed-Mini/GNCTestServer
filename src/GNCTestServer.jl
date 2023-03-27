@@ -23,7 +23,7 @@ mutable struct Control
     m::Array{Float64,1} # Control input
 end
 
-function Base.zero(_::Control)
+function Base.zero(::Control)
     return Control(zeros(3))
 end
 
