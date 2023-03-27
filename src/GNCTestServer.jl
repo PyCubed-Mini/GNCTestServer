@@ -23,6 +23,10 @@ mutable struct Control
     m::Array{Float64,1} # Control input
 end
 
+function Base.zero(_::Control)
+    return Control(zeros(3))
+end
+
 
 """
 Rung-Kutta 4th order integrator
