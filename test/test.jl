@@ -34,6 +34,10 @@ end
 
 @testset "io" begin
     Random.seed!(1234)
-    (data, time) = GNCTestServer.simulate(`sh runfakesat.sh`, max_iterations=2000)
+    function measurement(state, params)
+        return (state, params)
+    end
+
+    (data, time) = GNCTestServer.simulate(`sh runfakesat.sh`, measurement, max_iterations=2000)
     display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end

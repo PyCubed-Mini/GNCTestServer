@@ -35,8 +35,7 @@ function mk_semaphore(key)
 end
 
 
-function downlink(buf, buf_sem, measurement)
-    @assert measurement isa Dict
+function downlink(buf, buf_sem, measurement::Dict)
     @pywith buf_sem as _ begin
         sensors = measurement
         payload = MsgPack.pack(sensors)

@@ -18,9 +18,13 @@ struct PycubedMini <: trueState
     params::Any
 ends
 
-function measurement(x::trueState)
+function PyM_measurement(x::trueState)
     return x.state.position
 end
 
-GNCTestServer.simulate()
+function PyM_control_law(measurement, t)
+    return Dict(position=>measurement.state.position)
+end
+
+GNCTestServer.simulate(PyM_control_law, PyM_measurement, )
 
