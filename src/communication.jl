@@ -1,5 +1,7 @@
 using InterProcessCommunication
 using PyCall
+# using Pkg
+# pyimport_conda("sysv_ipc", Pkg)
 sysv_ipc = PyNULL()
 
 function __init__()
@@ -35,9 +37,12 @@ function mk_semaphore(key)
 end
 
 
-function downlink(buf, buf_sem, measurement::Dict)
+function downlink(buf, buf_sem, measurement)
     @pywith buf_sem as _ begin
-        sensors = measurement
+        sensors = Dict(
+            :ω => measurement[1].angular_velocity,
+            :b => measurement[2].b,
+        )
         payload = MsgPack.pack(sensors)
         if length(payload) + 1 > length(buf)
             psize = length(payload)

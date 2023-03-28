@@ -251,7 +251,7 @@ Arguments:
 Returns:
 - hist:        Generated log of the simulation
 """
-function simulate(control::Function; measurement::Function, initial_state, log_init=default_log_init, log_step=default_log_step, max_iterations=1000, dt=0.5)
+function simulate(control::Function, measurement::Function, initial_state; log_init=default_log_init, log_step=default_log_step, max_iterations=1000, dt=0.5)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
     end
@@ -277,7 +277,7 @@ mutable struct SocketSim
     control::Control
 end
 
-function simulate(launch::Cmd; measurement::Function, initial_state, log_init=default_log_init, log_step=default_log_step, max_iterations=1000)
+function simulate(launch::Cmd, measurement::Function, initial_state; log_init=default_log_init, log_step=default_log_step, max_iterations=1000)
     function setup()
         println("Creating shared memory and semaphores...")
         uplink, uplink_ptr = mk_shared("gnc_uplink", 128)

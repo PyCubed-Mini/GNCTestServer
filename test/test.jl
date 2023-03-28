@@ -12,9 +12,9 @@ end;
 
 @testset "detumbling" begin
     Random.seed!(1234)
-    function control_law(state, params, t)
-        ω = state.angular_velocity
-        b = params.b
+    function control_law(measurement, t)
+        ω = measurement[1].angular_velocity
+        b = measurement[2].b
 
         b̂ = b / norm(b)
         k = 7e-4
@@ -25,11 +25,16 @@ end;
         )
     end
 
-
-    (data, time) = GNCTestServer.simulate(control_law, max_iterations=10000)
+    function measurement_id(state, params)
+        return (state, params)
+    end
+    struct basicSat
+        state
+        params
+    end
+    initial_state = basicSat(GNCTestServer.initialize_orbit(), GNCTestServer.initialize_params())
+    (data, time) = GNCTestServer.simulate(control_law, measurement_id, initial_state, max_iterations=10000)
     display(plot(time, data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
-
-
 end
 
 @testset "io" begin
@@ -37,7 +42,7 @@ end
     function measurement(state, params)
         return (state, params)
     end
-
-    (data, time) = GNCTestServer.simulate(`sh runfakesat.sh`, measurement, max_iterations=2000)
+    initial_state = basicSat(GNCTestServer.initialize_orbit(), GNCTestServer.initialize_params())
+    (data, time) = GNCTestServer.simulate(`sh runfakesat.sh`, measurement, initial_state, max_iterations=2000)
     display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end
