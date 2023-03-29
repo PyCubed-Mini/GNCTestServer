@@ -14,8 +14,10 @@ function mk_shared(name, size)
     try
         shm = IPC.SharedMemory(name)
         rm(shm)
-    catch
-        # This should happen
+    catch e
+        if e isa SystemError
+            IPC._shm_unlink(name)
+        end
     end
     shm = IPC.SharedMemory(name, size, perms=0o777)
     ptr = convert(Ptr{UInt8}, pointer(shm))
@@ -43,6 +45,7 @@ function downlink(buf, buf_sem, measurement)
             :ω => measurement[1].angular_velocity,
             :b => measurement[2].b,
         )
+        println(sensors)
         payload = MsgPack.pack(sensors)
         if length(payload) + 1 > length(buf)
             psize = length(payload)
@@ -57,6 +60,7 @@ function uplink(buf, buf_sem, itteration)
     start = time()
     while true
         id = reinterpret(Int64, buf[1:8])[1]
+        # println(buf[1:8])
         if id == itteration
             break
         elseif id >= itteration
