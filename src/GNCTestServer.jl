@@ -281,13 +281,9 @@ function simulate(launch::Cmd, measurement::Function, initial_state; log_init=de
     function setup()
         println("Creating shared memory and semaphores...")
         uplink, uplink_ptr = mk_shared("gnc_uplink", 128)
-        println("created uplink memory...")
         uplink_sem = mk_semaphore(67)
-        println("created uplink semaphore...")
         downlink, downlink_ptr = mk_shared("gnc_downlink", 128)
-        println("created downlink memory...")
         downlink_sem = mk_semaphore(68)
-        println("created downlink sempahore...")
         println("Launching satellite...")
         sleep(0.1)
         satellite_process = run(launch, wait=false)
@@ -308,9 +304,7 @@ function simulate(launch::Cmd, measurement::Function, initial_state; log_init=de
         if sim.satellite_process.exitcode >= 0
             throw(error("Satellite process exited with code $(sim.satellite_process.exitcode), check /tmp/satlog.txt for details"))
         end
-        println("downlinking")
         downlink(sim.downlink, sim.downlink_sem, measurement)
-        println("uplinking")
         uplink_data = uplink(sim.uplink, sim.uplink_sem, i)
         sim.control = Control(uplink_data["m"])
         println("updating control")
