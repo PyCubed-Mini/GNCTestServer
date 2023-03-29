@@ -60,7 +60,6 @@ function uplink(buf, buf_sem, itteration)
     start = time()
     while true
         id = reinterpret(Int64, buf[1:8])[1]
-        # println(buf[1:8])
         if id == itteration
             break
         elseif id >= itteration
