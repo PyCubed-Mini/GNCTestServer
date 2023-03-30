@@ -114,7 +114,7 @@ function Base.isapprox(x1::RBState, x2::RBState; kwargs...)
     isapprox(x1.position, x2.position; kwargs...) &&
         isapprox(x1.velocity, x2.velocity; kwargs...) &&
         isapprox(x1.angular_velocity, x2.angular_velocity; kwargs...) &&
-        isapprox(principal_value(x1.attitude), principal_value(x2.attitude); kwargs...)
+        isapprox(x1.attitude, x2.attitude; kwargs...)
 end
 
 """
