@@ -3,7 +3,7 @@ using StaticArrays
 using BenchmarkTools
 using LinearAlgebra
 
-include("../src/satellite_models.jl")
+include("../src/RBState.jl")
 
 r = @SVector rand(3)
 v = @SVector rand(3)
@@ -87,3 +87,7 @@ x = x1 - x2
 @test x.attitude ≈ x1.attitude - x2.attitude
 @test x.velocity ≈ x1.velocity - x2.velocity
 @test x.angular_velocity ≈ x1.angular_velocity - x2.angular_velocity
+
+# Multiplication
+@test x1 * 2 ≈ 2 * x1 ≈ x1 + x1
+@test x1 * 3 ≈ 3 * x1 ≈ x1 + x1 + x1
