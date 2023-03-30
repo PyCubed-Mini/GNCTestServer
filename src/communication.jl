@@ -63,7 +63,6 @@ function uplink(buf, buf_sem, itteration)
         sleep(0.0001)
     end
     @pywith buf_sem as _ begin
-        println(" $(time() - start)s")
         payload = buf[9:end]
         res = MsgPack.unpack(payload)
         return res
