@@ -45,7 +45,6 @@ function downlink(buf, buf_sem, measurement)
             :ω => measurement[1].angular_velocity,
             :b => measurement[2].b,
         )
-        println(sensors)
         payload = MsgPack.pack(sensors)
         if length(payload) + 1 > length(buf)
             psize = length(payload)
@@ -68,7 +67,6 @@ function uplink(buf, buf_sem, itteration)
         sleep(0.0001)
     end
     @pywith buf_sem as _ begin
-        println(" $(time() - start)s")
         payload = buf[9:end]
         res = MsgPack.unpack(payload)
         return res

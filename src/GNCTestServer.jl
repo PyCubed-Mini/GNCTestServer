@@ -307,7 +307,6 @@ function simulate(launch::Cmd, measurement::Function, initial_state; log_init=de
         downlink(sim.downlink, sim.downlink_sem, measurement)
         uplink_data = uplink(sim.uplink, sim.uplink_sem, i)
         sim.control = Control(uplink_data["m"])
-        println("updating control")
         sim.dt = uplink_data["dt"]
     end
     function cleanup(sim)
