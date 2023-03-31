@@ -54,7 +54,7 @@ function IGRF13(r_eci, epc::Epoch)
     # convert from nT to T
     return B_eci_nT * 1e-9
 end
-const gh = SA([
+const gh = SA[
     -29404.8, -1450.9, 4652.5, -2499.6, 2982.0, -2991.6,    # 2020
     1677.0, -734.6, 1363.2, -2381.2, -82.1, 1236.2,    # 2020
     241.9, 525.7, -543.4, 903.0, 809.5, 281.9,    # 2020
@@ -102,7 +102,7 @@ const gh = SA([
     -0.1, 0.6, 0.4, -0.2, -0.1, 0.5,    # 2022
     0.4, -0.3, 0.3, -0.4, -0.1, 0.5,    # 2022
     0.4, 0.0, zeros(115)...                         # 2022
-])
+]
 
 function my_igrf_13(date, alt, lat, elong, order)
     """Truncated IGRF model.
