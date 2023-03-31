@@ -55,8 +55,7 @@ end
 @testset "detumbling" begin
     Random.seed!(1234)
     function control_law(measurement, t)
-        ω = measurement[1].angular_velocity
-        b = measurement[2].b
+        (ω, b) = measurement
 
         b̂ = b / norm(b)
         k = 7e-4
@@ -67,7 +66,11 @@ end
         )
     end
 
-    (data, time) = GNCTestServer.simulate(control_law, max_iterations=10000)
+    @inline function measure(state, params)
+        return (state.angular_velocity, params.b)
+    end
+
+    @time (data, time) = GNCTestServer.simulate(control_law, max_iterations=10000, measure=measure)
     display(plot(time, data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end
 

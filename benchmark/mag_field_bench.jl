@@ -13,5 +13,7 @@ function test_igrf(iter=1000)
     end
 end
 
+@assert [-8.529074752279366, 2.6700487774761283, 18.698375602749916] ≈ GNCTestServer.IGRF13(position, time)
 test_igrf(1)
-@profview test_igrf(1000)
+@time test_igrf(1000)
+#   0.023724 seconds (454.00 k allocations: 16.876 MiB)
