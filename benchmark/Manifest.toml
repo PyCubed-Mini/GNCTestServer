@@ -269,11 +269,11 @@ version = "3.3.8+0"
 
 [[deps.GNCTestServer]]
 deps = ["InterProcessCommunication", "LinearAlgebra", "MsgPack", "Printf", "PyCall", "Rotations", "SatelliteDynamics", "Sockets", "StaticArrays"]
-git-tree-sha1 = "70c7db133b7742c18cfff5115fa70ba66101f9d6"
+git-tree-sha1 = "96a3943d8f6a815f2d940bc97546b305cac61526"
 repo-rev = "benchmark"
 repo-url = ".."
 uuid = "301134cd-0795-4287-8b73-e567f40fdffd"
-version = "0.2.1"
+version = "0.2.2"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]

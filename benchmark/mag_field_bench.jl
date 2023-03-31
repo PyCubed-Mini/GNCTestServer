@@ -16,4 +16,5 @@ end
 @assert [-8.529074752279366, 2.6700487774761283, 18.698375602749916] ≈ GNCTestServer.IGRF13(position, time)
 test_igrf(1)
 @time test_igrf(1000)
-#   0.023724 seconds (454.00 k allocations: 16.876 MiB)
+# 0.023724 seconds (454.00 k allocations: 16.876 MiB)
+# 0.011970 seconds (61.00 k allocations: 4.654 MiB)
