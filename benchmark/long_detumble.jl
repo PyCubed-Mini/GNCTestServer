@@ -77,6 +77,6 @@ time /= 60
 data = rad2deg.(data)
 
 
-# display(plot(time, data, title="DeTumbling", xlabel="Time (minutes)", ylabel="Angular Velocity (deg/s)", labels=["ω1" "ω2" "ω3" "ω"]))
+display(plot(time, data, title="DeTumbling", xlabel="Time (minutes)", ylabel="Angular Velocity (deg/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 
 #  18.903280 seconds (99.61 M allocations: 4.767 GiB, 7.28% gc time, 0.90% compilation time: 77% of which was recompilation)

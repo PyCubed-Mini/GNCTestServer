@@ -257,8 +257,7 @@ Returns:
 - hist:        Generated log of the simulation
 """
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step, 
-    log_end=default_log_end, terminal_condition=default_terminate, 
-    max_iterations=1000, dt=0.5,
+    log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
     initial_condition=nothing, measure=default_measure)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
