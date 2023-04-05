@@ -267,14 +267,6 @@ git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
 
-[[deps.GNCTestServer]]
-deps = ["InterProcessCommunication", "LinearAlgebra", "MsgPack", "Printf", "PyCall", "Rotations", "SatelliteDynamics", "Sockets", "StaticArrays"]
-git-tree-sha1 = "0d5216bd053931ed8ae6122beb2dab03c9353bfc"
-repo-rev = "benchmark"
-repo-url = ".."
-uuid = "301134cd-0795-4287-8b73-e567f40fdffd"
-version = "0.2.2"
-
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
 git-tree-sha1 = "4423d87dc2d3201f3f1768a29e807ddc8cc867ef"
