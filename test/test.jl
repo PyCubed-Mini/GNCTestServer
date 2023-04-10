@@ -3,16 +3,17 @@ using LinearAlgebra
 using Plots
 using Random
 using SatelliteDynamics
-include("../src/GNCTestServer.jl")
+include("../src/SatellitePlayground.jl")
+SP = SatellitePlayground
 
 @testset "basic single variable integration" begin
     idx = x -> x
-    @test GNCTestServer.rk4(0.0, 0.0, 0.1, (x, t) -> 2 * x + 1) ≈ 0.11 atol = 0.01
-    @test GNCTestServer.rk4(0.0, 3.0, 0.1, (x, t) -> sin(x)) ≈ 0.009142653672834007 atol = 0.01
+    @test SP.rk4(0.0, 0.0, 0.1, (x, t) -> 2 * x + 1) ≈ 0.11 atol = 0.01
+    @test SP.rk4(0.0, 3.0, 0.1, (x, t) -> sin(x)) ≈ 0.009142653672834007 atol = 0.01
 end;
 
 function no_control(measure, t)
-    return zero(GNCTestServer.Control)
+    return zero(SP.Control)
 end
 
 @testset "Distance from center of earth" begin
@@ -24,7 +25,7 @@ end
         point = norm(state.position) - earth_radius
         push!(hist, point)
     end
-    (data, time) = GNCTestServer.simulate(no_control, max_iterations=10000, log_init=log_init, log_step=log_step, dt=10.0)
+    (data, time) = SP.simulate(no_control, max_iterations=10000, log_init=log_init, log_step=log_step, dt=10.0)
     data /= 1000
     display(plot(time, data, title="Distance from earth", xlabel="Time (s)", ylabel="Distance from earth (km)", labels="r"))
 end
@@ -48,7 +49,7 @@ end
         point = energy(state)
         push!(hist, point)
     end
-    (data, time) = GNCTestServer.simulate(no_control, max_iterations=100000, log_init=log_init, log_step=log_step, dt=0.5)
+    (data, time) = SP.simulate(no_control, max_iterations=100000, log_init=log_init, log_step=log_step, dt=0.5)
     display(plot(time, data, title="Energy", xlabel="Time (s)", ylabel="Energy", labels="E"))
 end
 
@@ -61,7 +62,7 @@ end
         k = 7e-4
         M = -k * (I(3) - b̂ * b̂') * ω
         m = 1 / (dot(b, b)) * cross(b, M)
-        return GNCTestServer.Control(
+        return SP.Control(
             m
         )
     end
@@ -70,12 +71,12 @@ end
         return (state.angular_velocity, params.b)
     end
 
-    @time (data, time) = GNCTestServer.simulate(control_law, max_iterations=10000, measure=measure)
+    @time (data, time) = SP.simulate(control_law, max_iterations=10000, measure=measure)
     display(plot(time, data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end
 
 @testset "io" begin
     Random.seed!(1234)
-    (data, time) = GNCTestServer.simulate(`sh runfakesat.sh`, max_iterations=2000)
+    (data, time) = SP.simulate(`sh runfakesat.sh`, max_iterations=2000)
     display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end

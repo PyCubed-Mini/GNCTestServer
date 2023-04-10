@@ -2,8 +2,10 @@ using Test
 using LinearAlgebra
 using SatelliteDynamics
 using Plots
-using GNCTestServer
+using SatellitePlayground
 using ProfileView
+
+SP = SatellitePlayground
 
 py4_dipole_limits = [0.06997731147540984,
     0.053130000000000004,
@@ -17,7 +19,7 @@ function control_law(m, t)
     k = 7e-4
     M = -k * (I(3) - b̂ * b̂') * ω
     m = 1 / (dot(b, b)) * cross(b, M)
-    return GNCTestServer.Control(
+    return SP.Control(
         clamp.(m, -py4_dipole_limits, py4_dipole_limits)
     )
 end
@@ -27,7 +29,7 @@ q0 = [1.0, 0.0, 0.0, 0.0]
 ω0 = 0.1 * [0.3, 0.1, -0.2]
 ω0 = ω0 / norm(ω0) * deg2rad(50.0)
 
-x0 = GNCTestServer.state_from_osc(x_osc_0, q0, ω0)
+x0 = SP.state_from_osc(x_osc_0, q0, ω0)
 
 function measurement(state)
     return [state.angular_velocity; norm(state.angular_velocity)]
@@ -59,7 +61,7 @@ end
 
 function log_end(hist)
     println(hist.measures)
-    return GNCTestServer.default_log_end(hist.measures)
+    return SP.default_log_end(hist.measures)
 end
 
 function terminal_condition(state, params, t, i)
@@ -68,7 +70,7 @@ end
 
 day = 60 * 60 * 24
 time_step = 0.1
-@time (data, time) = GNCTestServer.simulate(control_law, max_iterations=day / time_step, dt=time_step,
+@time (data, time) = SP.simulate(control_law, max_iterations=day / time_step, dt=time_step,
     log_init=log_init, log_step=log_step, log_end=log_end, initial_condition=x0, terminal_condition=terminal_condition)
 time = time[1:down_sample_rate:end]
 time = time[1:size(data)[1]]

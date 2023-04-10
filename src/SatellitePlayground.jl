@@ -1,6 +1,6 @@
 # Version 0.1.0
 
-module GNCTestServer
+module SatellitePlayground
 import Base: *, +
 using LinearAlgebra
 using MsgPack

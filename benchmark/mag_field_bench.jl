@@ -1,4 +1,4 @@
-using GNCTestServer
+using SatellitePlayground
 using ProfileView
 using Cthulhu
 using StaticArrays
@@ -9,7 +9,7 @@ const time = SatelliteDynamics.Epoch("2020-03-31")
 
 function test_igrf(iter=1000)
     for _ in 1:iter
-        GNCTestServer.IGRF13(position, time)
+        SatellitePlayground.IGRF13(position, time)
     end
 end
 
