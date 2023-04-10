@@ -219,7 +219,7 @@ Arguments:
 - t:       Current time, as an Epoch struct                          |  Epoch
 - dt:      Time step, in seconds                                     |  Scalar
 
-Returns:
+Returns:https://github.com/PyGNC/OrbitalEstimationPlayground/tree/main
 - state:   Updated state of the system, as a State struct            |  State
 - t:       Updated time, as an Epoch struct                          |  Epoch
 """
@@ -360,7 +360,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
     try
         for i = 1:max_iterations
             update_parameters(state, params, time)
-            step(sim, measure(state, params), time, i)
+            step(sim, measure(state, params, time), time, i)
             (state, time) = sim_step(state, params, sim.control, time, sim.dt)
             log_step(hist, state)
             append!(time_hist, time - start_time)
@@ -419,7 +419,7 @@ function default_terminate(state, params, time, i)
     return norm(state.angular_velocity) < 0.01
 end
 
-@inline function default_measure(state, params)
+@inline function default_measure(state, params, t)
     return (state, params)
 end
 

@@ -67,7 +67,7 @@ end
         )
     end
 
-    @inline function measure(state, params)
+    @inline function measure(state, params, t)
         return (state.angular_velocity, params.b)
     end
 
