@@ -96,7 +96,7 @@ const T = [1 0 0 0; 0 -1 0 0; 0 0 -1 0; 0 0 0 -1]   # Forms the conjugate of q, 
     Returns:
      - Q: Rotation matrix representing the same rotation
 """
-function quaternionToMatrix(q::Vector{Float64})
+function quaternionToMatrix(q)
     s, v = q[1], q[2:4]
     return I(3) + 2 * hat(v) * (s * I(3) + hat(v))
 end
