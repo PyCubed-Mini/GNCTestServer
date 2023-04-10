@@ -5,7 +5,12 @@ using PyCall
 sysv_ipc = PyNULL()
 
 function __init__()
-    copy!(sysv_ipc, pyimport("sysv_ipc")) # how to import this / make it a dependency
+    try
+        copy!(sysv_ipc, pyimport("sysv_ipc")) # how to import this / make it a dependency
+    catch e
+        println(e)
+        println("sysv_ipc not installed, communication will not work")
+    end
 end
 
 MAGIC_PACKET_SIZE = 43
