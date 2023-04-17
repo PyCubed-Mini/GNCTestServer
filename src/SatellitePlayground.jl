@@ -56,7 +56,7 @@ Returns:
 - state: the derivative of the state                                     | State
 """
 function dynamics(state::RBState, parameters::Parameters, control::Control, t::Epoch)::RBState
-    ᵇQⁿ = SP.quaternionToMatrix(state.attitude)'
+    ᵇQⁿ = quaternionToMatrix(state.attitude)'
     u = cross(control.m, ᵇQⁿ * parameters.b)
     return RBState(
         state.velocity,
