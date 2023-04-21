@@ -6,7 +6,8 @@ makedocs(
     sitename="SatellitePlayground.jl",
     modules=[SatellitePlayground],
     pages=[
-        "Home" => "index.md"
+        "Home" => "index.md",
+        "API" => "api.md"
     ])
 deploydocs(;
     repo="https://github.com/PyGNC/SatellitePlayground.jl"

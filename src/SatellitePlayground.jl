@@ -15,6 +15,11 @@ include("initial_conditions.jl")
 
 export simulator, Control, Parameters, RBState, world_to_body
 
+"""
+    Parameters
+
+Should be in the body frame.
+"""
 mutable struct Parameters
     J::Array{Float64,2} # Inertia matrix
     b::Array{Float64,1} # Magnetic field
@@ -56,8 +61,7 @@ Returns:
 - state: the derivative of the state                                     | State
 """
 function dynamics(state::RBState, parameters::Parameters, control::Control, t::Epoch)::RBState
-    ᵇQⁿ = quaternionToMatrix(state.attitude)'
-    u = cross(control.m, ᵇQⁿ * parameters.b)
+    u = cross(control.m, parameters.b)
     return RBState(
         state.velocity,
         accel_perturbations(t, state.position, state.velocity),
@@ -231,13 +235,12 @@ function sim_step(state::RBState, params::Parameters, control::Control, t::Epoch
 end
 
 function update_parameters(state, params, time)
-    params.b = IGRF13(state.position, time)
+    params.b = world_to_body(state, IGRF13(state.position, time))
 end
 
 function initialize_params()
     J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
-    params = Parameters(J, [0.0, 0.0, 0.0])
-    return params
+    return Parameters(J, [0.0, 0.0, 0.0])
 end
 
 mutable struct FunctionSim
@@ -246,18 +249,25 @@ mutable struct FunctionSim
 end
 
 """
-Runs the simulation, given a control function.
-Optionally takes in functions to initialize and update the log.
+    simulate(control::Function)
+    simulate(launch::Cmd)
+    simluate(control::Function, log_init=default_log_init, log_step=default_log_step,
+    log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000,
+    dt=0.5, initial_condition=nothing, measure=default_measure)
 
-Arguments:
-- control_fn:  Function to compute control input, given state, params, and time      |  Function
-- log_init:    (Optional) Function to initialize the log, given the number of steps  |  Function
-- log_step:    (Optional) Function to update the log, given the current state        |  Function
+Runs a simulation from a random initial condition (or from initial_condition) if given.
+The simulation runs for max_iterations steps.
 
-Returns:
-- hist:        Generated log of the simulation
+The control input to the magnetorquer coils at each time step is set either by the given control 
+function, or by the GNCTestClient launched by the launch command.
+
+By default the controller recieves the (state, parameters, time) in the body frame.
+But this can be changed by setting the measurement function `measure`.
+
+The simulation logs the angular velocity and its mangitude by default.
+However, by setting the log_* functions one can log arbitrary data.
 """
-function simulate(control::Function; log_init=default_log_init, log_step=default_log_step, 
+function simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
     log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
     initial_condition=nothing, measure=default_measure)
     function setup()
@@ -269,10 +279,10 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
     function cleanup(sim)
         return
     end
-    return simulate_helper(setup, step, cleanup, 
-    log_init, log_step, log_end, 
-    terminal_condition, max_iterations, 
-    initial_condition, measure)
+    return simulate_helper(setup, step, cleanup,
+        log_init, log_step, log_end,
+        terminal_condition, max_iterations,
+        initial_condition, measure)
 end
 
 mutable struct SocketSim
@@ -288,7 +298,7 @@ mutable struct SocketSim
 end
 
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
-    log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000, 
+    log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000,
     initial_condition=nothing, measure=default_measure)
     function setup()
         println("Creating shared memory and semaphores...")
@@ -327,10 +337,10 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         sim.downlink_sem.remove()
         println("Killed satellite process")
     end
-    return simulate_helper(setup, step, cleanup, 
-    log_init, log_step, log_end, 
-    terminal_condition, max_iterations, 
-    initial_condition, measure)
+    return simulate_helper(setup, step, cleanup,
+        log_init, log_step, log_end,
+        terminal_condition, max_iterations,
+        initial_condition, measure)
 end
 
 function print_iteration(i, max_iterations, state, params, sim)
@@ -339,8 +349,8 @@ function print_iteration(i, max_iterations, state, params, sim)
         params.b[2], params.b[3], sim.dt)
 end
 
-function simulate_helper(setup::Function, step::Function, cleanup::Function, 
-    log_init::Function, log_step::Function, log_end::Function, 
+function simulate_helper(setup::Function, step::Function, cleanup::Function,
+    log_init::Function, log_step::Function, log_end::Function,
     terminal_condition::Function, max_iterations, initial_condition, measure::Function)
     if isnothing(initial_condition)
         state = initialize_orbit()
@@ -424,6 +434,11 @@ end
     return (state, params)
 end
 
+"""
+    world_to_body(::RBState, ::Vector)
+
+Returns the vector in the body frame
+"""
 @inline function world_to_body(state, vec)
     return quaternionToMatrix(state.attitude)' * vec
 end
