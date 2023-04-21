@@ -13,7 +13,7 @@ include("communication.jl")
 include("RBState.jl")
 include("initial_conditions.jl")
 
-export simulator, Control, Parameters, RBState
+export simulator, Control, Parameters, RBState, world_to_body
 
 mutable struct Parameters
     J::Array{Float64,2} # Inertia matrix
@@ -422,6 +422,10 @@ end
 
 @inline function default_measure(state, params, t)
     return (state, params)
+end
+
+@inline function world_to_body(state, vec)
+    return quaternionToMatrix(state.attitude)' * vec
 end
 
 end
