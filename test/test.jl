@@ -12,7 +12,7 @@ SP = SatellitePlayground
     @test SP.rk4(0.0, 3.0, 0.1, (x, t) -> sin(x)) ≈ 0.009142653672834007 atol = 0.01
 end;
 
-function no_control(measure, t)
+function no_control(measurement)
     return zero(SP.Control)
 end
 
@@ -55,7 +55,7 @@ end
 
 @testset "detumbling" begin
     Random.seed!(1234)
-    function control_law(measurement, t)
+    function control_law(measurement)
         (ω, b) = measurement
 
         b̂ = b / norm(b)
