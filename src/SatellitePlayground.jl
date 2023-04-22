@@ -422,6 +422,7 @@ function default_log_step(hist, state)
 end
 
 function default_log_end(hist)
+    hist = Vector.(hist)
     hist = reduce(hcat, hist)
     hist = hist'
 end
