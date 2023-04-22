@@ -366,7 +366,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
     start_time = Epoch(2020, 11, 30)
     time = start_time
     hist = log_init(state)
-    time_hist = [0.0]
+    time_hist = []
 
     try
         for i = 1:max_iterations
