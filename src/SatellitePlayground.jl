@@ -406,7 +406,7 @@ Returns:
 - hist:        Initialized log of the simulation                         |  Matrix
 """
 function default_log_init(state)
-    return [[state.angular_velocity; norm(state.angular_velocity)]]
+    return []
 end
 
 """
