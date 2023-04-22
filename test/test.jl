@@ -18,14 +18,11 @@ end
 
 @testset "Distance from center of earth" begin
     earth_radius = 6378.1 * 1000
-    function log_init(state)
-        return [norm(state.position) - earth_radius]
-    end
     function log_step(hist, state)
         point = norm(state.position) - earth_radius
         push!(hist, point)
     end
-    (data, time) = SP.simulate(no_control, max_iterations=10000, log_init=log_init, log_step=log_step, dt=10.0)
+    (data, time) = SP.simulate(no_control, max_iterations=10000, log_step=log_step, dt=10.0)
     data /= 1000
     display(plot(time, data, title="Distance from earth", xlabel="Time (s)", ylabel="Distance from earth (km)", labels="r"))
 end
@@ -42,14 +39,11 @@ function energy(state; J=[0.3 0 0; 0 0.3 0; 0 0 0.3], μ=3.9860044188e14)
 end
 
 @testset "Conservation of energy" begin
-    function log_init(state)
-        return [energy(state)]
-    end
     function log_step(hist, state)
         point = energy(state)
         push!(hist, point)
     end
-    (data, time) = SP.simulate(no_control, max_iterations=100000, log_init=log_init, log_step=log_step, dt=0.5)
+    (data, time) = SP.simulate(no_control, max_iterations=100000, log_step=log_step, dt=0.5)
     display(plot(time, data, title="Energy", xlabel="Time (s)", ylabel="Energy", labels="E"))
 end
 

@@ -25,6 +25,8 @@ mutable struct Parameters
     b::Array{Float64,1} # Magnetic field
 end
 
+Base.copy(p::Parameters) = Parameters(copy(p.J), copy(p.b))
+
 mutable struct Control
     m::Array{Float64,1} # Control input
 end
@@ -32,6 +34,9 @@ end
 function Base.zero(::Type{Control})
     return Control(zeros(3))
 end
+
+J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
+default_parameters = Parameters(J, [0.0, 0.0, 0.0])
 
 
 """
@@ -238,11 +243,6 @@ function update_parameters(state, params, time)
     params.b = world_to_body(state, IGRF13(state.position, time))
 end
 
-function initialize_params()
-    J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
-    return Parameters(J, [0.0, 0.0, 0.0])
-end
-
 mutable struct FunctionSim
     dt::Float64
     control::Control
@@ -269,7 +269,7 @@ However, by setting the log_* functions one can log arbitrary data.
 """
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
     log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
-    initial_condition=nothing, measure=default_measure)
+    initial_condition=nothing, measure=default_measure, initial_parameters=default_parameters)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
     end
@@ -282,7 +282,7 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
     return simulate_helper(setup, step, cleanup,
         log_init, log_step, log_end,
         terminal_condition, max_iterations,
-        initial_condition, measure)
+        initial_condition, measure, initial_parameters)
 end
 
 mutable struct SocketSim
@@ -299,7 +299,7 @@ end
 
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
     log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000,
-    initial_condition=nothing, measure=default_measure)
+    initial_condition=nothing, measure=default_measure, initial_parameters=default_parameters)
     function setup()
         println("Creating shared memory and semaphores...")
         uplink, uplink_ptr = mk_shared("gnc_uplink", 128)
@@ -340,7 +340,7 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
     return simulate_helper(setup, step, cleanup,
         log_init, log_step, log_end,
         terminal_condition, max_iterations,
-        initial_condition, measure)
+        initial_condition, measure, initial_parameters)
 end
 
 function print_iteration(i, max_iterations, state, params, sim)
@@ -351,7 +351,8 @@ end
 
 function simulate_helper(setup::Function, step::Function, cleanup::Function,
     log_init::Function, log_step::Function, log_end::Function,
-    terminal_condition::Function, max_iterations, initial_condition, measure::Function)
+    terminal_condition::Function, max_iterations, initial_condition, measure::Function,
+    initial_parameters::Parameters)
     if isnothing(initial_condition)
         state = initialize_orbit()
     else
@@ -359,7 +360,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
     end
     println("intialized orbit!")
 
-    params = initialize_params()
+    params = copy(initial_parameters)
 
     sim = setup()
 
@@ -422,7 +423,9 @@ function default_log_step(hist, state)
 end
 
 function default_log_end(hist)
-    hist = Vector.(hist)
+    if hist[1] isa RBState || hist[1] isa SVector
+        hist = Vector.(hist)
+    end
     hist = reduce(hcat, hist)
     hist = hist'
 end
