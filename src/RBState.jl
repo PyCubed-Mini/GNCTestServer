@@ -38,6 +38,9 @@ struct RBState{T} <: StaticVector{13,T}
         @assert length(ω) == 3
         new{T}(r, v, q, ω)
     end
+    function RBState(; position, velocity, attitude, angular_velocity)
+        RBState(position, velocity, attitude, angular_velocity)
+    end
     @inline function RBState{T}(x::RBState) where {T}
         RBState{T}(x.position, x.velocity, x.attitude, x.angular_velocity)
     end
