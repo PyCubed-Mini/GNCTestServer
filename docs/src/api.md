@@ -13,4 +13,16 @@ The API all revolves around the `simulate` function which has two modes of runni
 simulate
 ```
 
+## State
+```@docs
+RBState
+```
+
+## Useful Helper Functions
+```@docs
+word_to_body
+initialize_orbit
+```
+
+
 ## 

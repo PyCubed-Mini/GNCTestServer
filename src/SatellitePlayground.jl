@@ -147,6 +147,8 @@ function accel_perturbations(epc::Epoch, r, v;
 end
 
 """
+    initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothing, Rₑ=6378.137e3, μ=3.9860044188e14)
+
 Initializes a random, viable orbit given a few different terms, usually 
 a position 'r' in Cartesian coordinates. Initial velocity may be specified, but 
 if specified it will not necessarily result in a stable orbit. 
@@ -421,6 +423,12 @@ function default_log_step(hist, state)
     push!(hist, point)
 end
 
+"""
+    vec_to_mat(hist)
+
+    Converts a vector of vectors to a matrix.
+    Useful for converting the output of a simulation to a format that can be plotted.
+"""
 function vec_to_mat(hist)
     if hist[1] isa RBState || hist[1] isa SVector
         hist = Vector.(hist)
