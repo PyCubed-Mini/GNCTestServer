@@ -23,6 +23,7 @@ end
         push!(hist, point)
     end
     (data, time) = SP.simulate(no_control, max_iterations=10000, log_step=log_step, dt=10.0)
+    data = SP.vec_to_mat(data)
     data /= 1000
     display(plot(time, data, title="Distance from earth", xlabel="Time (s)", ylabel="Distance from earth (km)", labels="r"))
 end
@@ -44,6 +45,7 @@ end
         push!(hist, point)
     end
     (data, time) = SP.simulate(no_control, max_iterations=100000, log_step=log_step, dt=0.5)
+    data = SP.vec_to_mat(data)
     display(plot(time, data, title="Energy", xlabel="Time (s)", ylabel="Energy", labels="E"))
 end
 
@@ -66,11 +68,13 @@ end
     end
 
     @time (data, time) = SP.simulate(control_law, max_iterations=10000, measure=measure)
+    data = SP.vec_to_mat(data)
     display(plot(time, data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end
 
 @testset "io" begin
     Random.seed!(1234)
     (data, time) = SP.simulate(`sh runfakesat.sh`, max_iterations=2000)
+    data = SP.vec_to_mat(data)
     display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end

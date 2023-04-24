@@ -252,7 +252,7 @@ end
     simulate(control::Function)
     simulate(launch::Cmd)
     simluate(control::Function, log_init=default_log_init, log_step=default_log_step,
-    log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000,
+    terminal_condition=default_terminate, max_iterations=1000,
     dt=0.5, initial_condition=nothing, measure=default_measure)
 
 Runs a simulation from a random initial condition (or from initial_condition) if given.
@@ -268,7 +268,7 @@ The simulation logs the angular velocity and its mangitude by default.
 However, by setting the log_* functions one can log arbitrary data.
 """
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
-    log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
+    terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
     initial_condition=nothing, measure=default_measure, initial_parameters=default_parameters)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
@@ -280,7 +280,7 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
         return
     end
     return simulate_helper(setup, step, cleanup,
-        log_init, log_step, log_end,
+        log_init, log_step, 
         terminal_condition, max_iterations,
         initial_condition, measure, initial_parameters)
 end
@@ -298,7 +298,7 @@ mutable struct SocketSim
 end
 
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
-    log_end=default_log_end, terminal_condition=default_terminate, max_iterations=1000,
+    terminal_condition=default_terminate, max_iterations=1000,
     initial_condition=nothing, measure=default_measure, initial_parameters=default_parameters)
     function setup()
         println("Creating shared memory and semaphores...")
@@ -338,7 +338,7 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         println("Killed satellite process")
     end
     return simulate_helper(setup, step, cleanup,
-        log_init, log_step, log_end,
+        log_init, log_step,
         terminal_condition, max_iterations,
         initial_condition, measure, initial_parameters)
 end
@@ -350,7 +350,7 @@ function print_iteration(i, max_iterations, state, params, sim)
 end
 
 function simulate_helper(setup::Function, step::Function, cleanup::Function,
-    log_init::Function, log_step::Function, log_end::Function,
+    log_init::Function, log_step::Function, 
     terminal_condition::Function, max_iterations, initial_condition, measure::Function,
     initial_parameters::Parameters)
     if isnothing(initial_condition)
@@ -386,7 +386,6 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
         cleanup(sim)
         println("Simulation complete!")
 
-        hist = log_end(hist)
         return (hist, time_hist)
     catch e
         println("Simulation failed: $e")
@@ -422,16 +421,17 @@ function default_log_step(hist, state)
     push!(hist, point)
 end
 
-function default_log_end(hist)
+function vec_to_mat(hist)
     if hist[1] isa RBState || hist[1] isa SVector
         hist = Vector.(hist)
     end
     hist = reduce(hcat, hist)
     hist = hist'
+    return hist
 end
 
 function default_terminate(state, params, time, i)
-    return norm(state.angular_velocity) < 0.01
+    return false
 end
 
 @inline function default_measure(state, params, t)
