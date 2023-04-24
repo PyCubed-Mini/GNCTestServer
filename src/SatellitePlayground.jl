@@ -426,8 +426,8 @@ end
 """
     vec_to_mat(hist)
 
-    Converts a vector of vectors to a matrix.
-    Useful for converting the output of a simulation to a format that can be plotted.
+Converts a vector of vectors to a matrix.
+Useful for converting the output of a simulation to a format that can be plotted.
 """
 function vec_to_mat(hist)
     if hist[1] isa RBState || hist[1] isa SVector
@@ -441,7 +441,7 @@ end
 """
     default_terminate(state, params, time, i)
 
-    default termination condition for `simulate`, always returns `false`.
+default termination condition for `simulate`, always returns `false`.
 """
 function default_terminate(state, params, time, i)
     return false
@@ -450,7 +450,7 @@ end
 """
     default_measure(state, params, t)
 
-    Default measurement function used by `simulate`, returns the state and parameters.
+Default measurement function used by `simulate`, returns the state and parameters.
 """
 @inline function default_measure(state, params, t)
     return (state, params)
