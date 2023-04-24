@@ -438,10 +438,20 @@ function vec_to_mat(hist)
     return hist
 end
 
+"""
+    default_terminate(state, params, time, i)
+
+    default termination condition for `simulate`, always returns `false`.
+"""
 function default_terminate(state, params, time, i)
     return false
 end
 
+"""
+    default_measure(state, params, t)
+
+    Default measurement function used by `simulate`, returns the state and parameters.
+"""
 @inline function default_measure(state, params, t)
     return (state, params)
 end

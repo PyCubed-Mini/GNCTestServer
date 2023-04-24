@@ -18,10 +18,17 @@ simulate
 RBState
 ```
 
+## Defaults
+```@docs
+default_measure
+default_terminate
+```
+
 ## Useful Helper Functions
 ```@docs
-word_to_body
 initialize_orbit
+world_to_body
+vec_to_mat
 ```
 
 
