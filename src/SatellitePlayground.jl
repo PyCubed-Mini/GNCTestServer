@@ -253,12 +253,12 @@ end
 """
     simulate(control::Function)
     simulate(launch::Cmd)
-    simluate(control::Function, log_init=default_log_init, log_step=default_log_step,
+    simulate(control::Function, log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000,
     dt=0.5, initial_condition=nothing, measure=default_measure)
 
-Runs a simulation from a random initial condition (or from initial_condition) if given.
-The simulation runs for max_iterations steps.
+Runs a simulation from a random initial condition (or from `initial_condition`) if given.
+The simulation runs for `max_iterations` steps.
 
 The control input to the magnetorquer coils at each time step is set either by the given control 
 function, or by the GNCTestClient launched by the launch command.
