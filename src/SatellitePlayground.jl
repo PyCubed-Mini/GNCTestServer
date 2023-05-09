@@ -426,8 +426,8 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
 
             log_step(hist, state)
             append!(time_hist, env.time - start_time)
-            print("\r\033[K")
             if !silent
+                print("\r\033[K")
                 print_iteration(i, max_iterations, state, env, sim)
             end
             if terminal_condition(state, params, time, i)
