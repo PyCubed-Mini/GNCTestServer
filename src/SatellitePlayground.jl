@@ -401,7 +401,9 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
     else
         state = initial_condition
     end
-    println("intialized orbit!")
+    if !silent
+        println("intialized orbit!")
+    end
 
     params = copy(initial_parameters)
 
@@ -432,9 +434,11 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
                 break
             end
         end
-        print("\n")
+        if !silent
+            print("\n")
+            println("Simulation complete!")
+        end
         cleanup(sim)
-        println("Simulation complete!")
 
         return (hist, time_hist)
     catch e
