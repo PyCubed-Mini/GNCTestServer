@@ -67,14 +67,51 @@ end
         return (state.angular_velocity, env.b)
     end
 
-    @time (data, time) = SP.simulate(control_law, max_iterations=10000, measure=measure)
+    @time (data, time) = SP.simulate(control_law, max_iterations=10_000, measure=measure, log_step=SP.angular_log_step)
     data = SP.vec_to_mat(data)
     display(plot(time, data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end
 
 @testset "io" begin
     Random.seed!(1234)
-    (data, time) = SP.simulate(`sh runfakesat.sh`, max_iterations=2000)
+    (data, time) = SP.simulate(`sh runfakesat.sh`, max_iterations=2000, log_step=SP.angular_log_step)
     data = SP.vec_to_mat(data)
     display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
+end
+
+@testset "Simulate multiple detumbling satellites" begin
+    Random.seed!(1235)
+    function control_law(measurement)
+        (ω, b) = measurement
+
+        b̂ = b / norm(b)
+        k = 7e-4
+        M = -k * (I(3) - b̂ * b̂') * ω
+        m = 1 / (dot(b, b)) * cross(b, M)
+        return SP.Control(
+            m
+        )
+    end
+
+    @inline function measure(state, env)
+        return (state.angular_velocity, env.b)
+    end
+
+    function log_step(hist, states)
+        ω = [norm(state.angular_velocity) for state in states]
+        push!(hist, ω)
+    end
+
+    function terminate(states, env, time, i)
+        return all(norm(state.angular_velocity) < 0.1 for state in states)
+    end
+
+    N = 4
+    controls = [control_law for _ in 1:N]
+    measures = [measure for _ in 1:N]
+
+    @time (data, time) = SP.simulate_multiple(controls, max_iterations=50_000,
+        measures=measures, log_step=log_step, terminal_condition=terminate, dt=0.5)
+    data = SP.vec_to_mat(data)
+    display(plot(time, data, title="DeTumbling Multiple Satellites", xlabel="Time (s)", ylabel="|Angular Velocity| (rad/s)", labels=["ω1" "ω2" "ω3" "ω4"]))
 end

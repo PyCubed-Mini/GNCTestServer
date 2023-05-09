@@ -329,6 +329,66 @@ function print_iteration(i, max_iterations, state, env, sim)
         env.b[2], env.b[3], sim.dt)
 end
 
+function print_iteration(i, max_iterations)
+    @printf("[%d/%d]", i, max_iterations)
+end
+
+function simulate_multiple(controls; log_init=default_log_init, log_step=default_log_step,
+    terminal_condition=default_terminate, max_iterations=1000, dt=0.1,
+    initial_conditions=nothing, measures=nothing,
+    initial_parameters=nothing, initial_environment=default_environment)
+    N = length(controls)
+    @assert (N > 0)
+    @assert (isnothing(initial_conditions) || length(initial_conditions) == N)
+    @assert (isnothing(measures) || length(measures) == N)
+
+    if isnothing(initial_conditions)
+        states = [initialize_orbit() for _ = 1:N]
+    else
+        states = initial_conditions
+    end
+    if isnothing(initial_parameters)
+        params = [copy(default_parameters) for _ = 1:N]
+    else
+        params = initial_parameters
+    end
+    if isnothing(measures)
+        measure_funcs = [default_measure for _ = 1:N]
+    else
+        measure_funcs = measures
+    end
+    println("intialized orbit!")
+
+
+    env = copy(initial_environment)
+    start_time = env.time
+
+    hist = log_init(state)
+    time_hist = []
+
+    for i = 1:max_iterations
+
+        for i = 1:N
+            update_environment(states[i], env)
+            u = controls[i](measure_funcs[i](states[i], env))
+            states[i] = integrate_state(states[i], params[i], env, u, dt)
+        end
+        env.time += dt
+
+        log_step(hist, states)
+        append!(time_hist, env.time - start_time)
+        print("\r\033[K")
+        print_iteration(i, max_iterations)
+        if terminal_condition(states, env, time, i)
+            break
+        end
+    end
+    print("\n")
+    println("Simulation complete!")
+
+    return (hist, time_hist)
+end
+
 function simulate_helper(setup::Function, step::Function, cleanup::Function,
     log_init::Function, log_step::Function,
     terminal_condition::Function, max_iterations, initial_condition, measure::Function,
@@ -395,15 +455,19 @@ function default_log_init(state)
 end
 
 """
-Default function to update the log, only logs angular velocity and magnitude.
+Logs angular velocity and magnitude.
 
 Arguments:
 - hist:        Log of the simulation                                     |  Matrix
 - state:       Current state of the system, as a State struct            |  State
 """
-function default_log_step(hist, state)
+function angular_log_step(hist, state)
     point = [state.angular_velocity; norm(state.angular_velocity)]
     push!(hist, point)
+end
+
+function default_log_step(hist, state)
+    push!(hist, state)
 end
 
 """
