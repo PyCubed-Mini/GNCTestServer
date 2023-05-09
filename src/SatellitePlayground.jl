@@ -18,14 +18,12 @@ export simulator, Control, Parameters, RBState, world_to_body
 """
     Parameters
 
-Should be in the body frame.
 """
 mutable struct Parameters
     J::Array{Float64,2} # Inertia matrix
-    b::Array{Float64,1} # Magnetic field
 end
 
-Base.copy(p::Parameters) = Parameters(copy(p.J), copy(p.b))
+Base.copy(p::Parameters) = Parameters(copy(p.J))
 
 mutable struct Control
     m::Array{Float64,1} # Control input
@@ -36,8 +34,23 @@ function Base.zero(::Type{Control})
 end
 
 J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
-default_parameters = Parameters(J, [0.0, 0.0, 0.0])
+default_parameters = Parameters(J)
 
+"""
+    Default enviorment type for the simulation
+
+Should be in the body frame
+"""
+mutable struct DefaultEnvironment
+    time::Epoch
+    b::Array{Float64,1} # Magnetic field
+end
+Base.copy(e::DefaultEnvironment) = DefaultEnvironment(e.time, copy(e.b))
+
+default_environment = DefaultEnvironment(
+    Epoch(2020, 11, 30),
+    [0.0, 0.0, 0.0]
+)
 
 """
 Rung-Kutta 4th order integrator
@@ -65,8 +78,8 @@ Arguments:
 Returns:
 - state: the derivative of the state                                     | State
 """
-function dynamics(state::RBState, parameters::Parameters, control::Control, t::Epoch)::RBState
-    u = cross(control.m, parameters.b)
+function dynamics(state::RBState, parameters::Parameters, environment::DefaultEnvironment, control::Control, t::Epoch)::RBState
+    u = cross(control.m, environment.b)
     return RBState(
         state.velocity,
         accel_perturbations(t, state.position, state.velocity),
@@ -88,11 +101,11 @@ Arguments
 Returns
 - state: the state of the spacecraft after the integration               | State
 """
-function integrate_state(state::RBState, parameters::Parameters, control::Control, t::Epoch, dt::Float64)::RBState
+function integrate_state(state::RBState, parameters::Parameters, environment::DefaultEnvironment, control::Control, dt::Float64)::RBState
     function time_dynamics(state::RBState, t)
-        return dynamics(state, parameters, control, t)
+        return dynamics(state, parameters, environment, control, t)
     end
-    new_state = rk4(state, t, dt, time_dynamics)
+    new_state = rk4(state, environment.time, dt, time_dynamics)
     return renorm(new_state)
 end
 
@@ -202,47 +215,8 @@ function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothi
     return RBState(r₀, v₀, q₀, ω₀)
 end
 
-"""
-Updates the free parameters given the state and time, 
-then calls the control function to compute the control input.
-
-Arguments:
-- state:   Current state of the system, as a State struct            |  State
-- params:  Free parameters of the system, as a Parameters struct     |  Parameters
-- control: Control function of state, parameters, and time           |  Function
-- t:       Current time, as an Epoch struct                          |  Epoch
-
-Returns:
-- control: Control input of the Satellite                            |  Control
-"""
-function control_step(state, params::Parameters, control_fn, t::Epoch)::Control
-    params.b = IGRF13(state.r, t)
-    return control_fn(state, params, t)
-end
-
-"""
-steps the simulation forward by one time step, dt.
-given the current state, free parameters, control function, and time.
-
-Arguments:
-- state:   Current state of the system, as a State struct            |  State
-- params:  Free parameters of the system, as a Parameters struct     |  Parameters
-- control: Control input of the Satellite                            |  Control
-- t:       Current time, as an Epoch struct                          |  Epoch
-- dt:      Time step, in seconds                                     |  Scalar
-
-Returns:https://github.com/PyGNC/OrbitalEstimationPlayground/tree/main
-- state:   Updated state of the system, as a State struct            |  State
-- t:       Updated time, as an Epoch struct                          |  Epoch
-"""
-function sim_step(state::RBState, params::Parameters, control::Control, t::Epoch, dt::Float64)::Tuple{Any,Epoch}
-    state = integrate_state(state, params, control, t, dt)
-    t += dt
-    return (state, t)
-end
-
-function update_parameters(state, params, time)
-    params.b = world_to_body(state, IGRF13(state.position, time))
+function update_environment(state::RBState, env::DefaultEnvironment)
+    env.b = world_to_body(state, IGRF13(state.position, env.time))
 end
 
 mutable struct FunctionSim
@@ -271,7 +245,8 @@ However, by setting the log_* functions one can log arbitrary data.
 """
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
-    initial_condition=nothing, measure=default_measure, initial_parameters=default_parameters)
+    initial_condition=nothing, measure=default_measure, initial_parameters=default_parameters,
+    initial_environment=default_environment)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
     end
@@ -282,9 +257,10 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
         return
     end
     return simulate_helper(setup, step, cleanup,
-        log_init, log_step, 
+        log_init, log_step,
         terminal_condition, max_iterations,
-        initial_condition, measure, initial_parameters)
+        initial_condition, measure,
+        initial_parameters, initial_environment)
 end
 
 mutable struct SocketSim
@@ -301,7 +277,8 @@ end
 
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000,
-    initial_condition=nothing, measure=default_measure, initial_parameters=default_parameters)
+    initial_condition=nothing, measure=default_measure,
+    initial_parameters=default_parameters, initial_environment=default_environment)
     function setup()
         println("Creating shared memory and semaphores...")
         uplink, uplink_ptr = mk_shared("gnc_uplink", 128)
@@ -342,19 +319,20 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
     return simulate_helper(setup, step, cleanup,
         log_init, log_step,
         terminal_condition, max_iterations,
-        initial_condition, measure, initial_parameters)
+        initial_condition, measure,
+        initial_parameters, initial_environment)
 end
 
-function print_iteration(i, max_iterations, state, params, sim)
+function print_iteration(i, max_iterations, state, env, sim)
     @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
-        i, max_iterations, norm(state.angular_velocity), state.position[1], state.position[2], state.position[3], params.b[1],
-        params.b[2], params.b[3], sim.dt)
+        i, max_iterations, norm(state.angular_velocity), state.position[1], state.position[2], state.position[3], env.b[1],
+        env.b[2], env.b[3], sim.dt)
 end
 
 function simulate_helper(setup::Function, step::Function, cleanup::Function,
-    log_init::Function, log_step::Function, 
+    log_init::Function, log_step::Function,
     terminal_condition::Function, max_iterations, initial_condition, measure::Function,
-    initial_parameters::Parameters)
+    initial_parameters::Parameters, initial_environment)
     if isnothing(initial_condition)
         state = initialize_orbit()
     else
@@ -366,20 +344,25 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
 
     sim = setup()
 
-    start_time = Epoch(2020, 11, 30)
-    time = start_time
+    env = copy(initial_environment)
+    start_time = env.time
+
     hist = log_init(state)
     time_hist = []
 
     try
         for i = 1:max_iterations
-            update_parameters(state, params, time)
-            step(sim, measure(state, params, time), i)
-            (state, time) = sim_step(state, params, sim.control, time, sim.dt)
+            update_environment(state, env)
+
+            step(sim, measure(state, env), i)
+
+            state = integrate_state(state, params, env, sim.control, sim.dt)
+            env.time += sim.dt
+
             log_step(hist, state)
-            append!(time_hist, time - start_time)
+            append!(time_hist, env.time - start_time)
             print("\r\033[K")
-            print_iteration(i, max_iterations, state, params, sim)
+            print_iteration(i, max_iterations, state, env, sim)
             if terminal_condition(state, params, time, i)
                 break
             end
@@ -452,8 +435,8 @@ end
 
 Default measurement function used by `simulate`, returns the state and parameters.
 """
-@inline function default_measure(state, params, t)
-    return (state, params)
+@inline function default_measure(state, env)
+    return (state, env)
 end
 
 """

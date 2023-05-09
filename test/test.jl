@@ -63,8 +63,8 @@ end
         )
     end
 
-    @inline function measure(state, params, t)
-        return (state.angular_velocity, params.b)
+    @inline function measure(state, env)
+        return (state.angular_velocity, env.b)
     end
 
     @time (data, time) = SP.simulate(control_law, max_iterations=10000, measure=measure)
