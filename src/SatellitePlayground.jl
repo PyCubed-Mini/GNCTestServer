@@ -61,9 +61,21 @@ function rk4(x, t, dt, derivative)
     k₃ = dt * derivative(x + k₂ * 0.5, t + dt * 0.5)
     k₄ = dt * derivative(x + k₃, t + dt)
 
-    x⁺ = x + (1 / 6) * (k₁ + 2 * k₂ + 2 * k₃ + k₄)
+    x⁺ = x + (1.0 / 6.0) * (k₁ + 2.0 * k₂ + 2.0 * k₃ + k₄)
 
     return x⁺
+end
+
+"""
+Rung-Kutta 4th order integrator, with full simulator parameters
+"""
+@inline function rk4(x, t, dt, parameters, environment, control)
+    k₁ = dt * dynamics(x, parameters, environment, control, t)
+    k₂ = dt * dynamics(x + k₁ * 0.5, parameters, environment, control, t + dt * 0.5)
+    k₃ = dt * dynamics(x + k₂ * 0.5, parameters, environment, control,t + dt * 0.5)
+    k₄ = dt * dynamics(x + k₃, parameters, environment, control, t + dt)
+
+    return x + (1.0 / 6.0) * (k₁ + 2.0 * k₂ + 2.0 * k₃ + k₄)
 end
 
 """ 
@@ -80,7 +92,7 @@ Returns:
 """
 function dynamics(state::RBState, parameters::Parameters, environment::DefaultEnvironment, control::Control, t::Epoch)::RBState
     u = cross(control.m, environment.b)
-    return RBState(
+    return RBState{eltype(state)}(
         state.velocity,
         accel_perturbations(t, state.position, state.velocity),
         qdot(state.attitude, state.angular_velocity),
@@ -102,10 +114,7 @@ Returns
 - state: the state of the spacecraft after the integration               | State
 """
 function integrate_state(state::RBState, parameters::Parameters, environment::DefaultEnvironment, control::Control, dt::Float64)::RBState
-    function time_dynamics(state::RBState, t)
-        return dynamics(state, parameters, environment, control, t)
-    end
-    new_state = rk4(state, environment.time, dt, time_dynamics)
+    new_state = rk4(state, environment.time, dt, parameters, environment, control)
     return renorm(new_state)
 end
 
@@ -117,11 +126,9 @@ ForwardDiff friendly (written by Kevin)
 """
 function accel_perturbations(epc::Epoch, r, v;
     mass::Real=1.0, area_drag::Real=0.01, coef_drag::Real=2.3, area_srp::Real=1.0,
-    coef_srp::Real=1.8, n_grav::Integer=10, m_grav::Integer=10, third_body::Bool=true)
+    coef_srp::Real=1.8, n_grav::Integer=10, m_grav::Integer=10, third_body::Bool=true)::SVector{3,Real}
 
     # These functions don't like static, so we gotta adjust
-    r = Vector(r)
-    v = Vector(v)
     x = [r; v]
 
     # Compute ECI to ECEF Transformation -> IAU2010 Theory

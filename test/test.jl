@@ -68,6 +68,10 @@ end
     end
 
     @time (data, time) = SP.simulate(control_law, max_iterations=10_000, measure=measure, log_step=SP.angular_log_step)
+    # 4.344277 seconds (15.07 M allocations: 795.512 MiB, 10.87% gc time, 2.39% compilation time)
+    # 4.517416 seconds (14.91 M allocations: 780.852 MiB, 7.04% gc time, 2.35% compilation time)
+    # 3.893083 seconds (15.89 M allocations: 776.579 MiB, 8.71% gc time, 1.71% compilation time)
+    # 3.608502 seconds (13.51 M allocations: 711.263 MiB, 8.77% gc time, 1.50% compilation time)
     data = SP.vec_to_mat(data)
     display(plot(time, data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end

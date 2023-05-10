@@ -17,10 +17,11 @@ using LinearAlgebra     # For I, norm
     Returns:
      - M:  A [3 × 3] skew-symmetric matrix    |  [3, 3]
 """
-function hat(v)
-    M = [0.0 -v[3] v[2]
-        v[3] 0.0 -v[1]
-        -v[2] v[1] 0.0]
+function hat(v::AbstractArray{<:Real,1})
+    z = zero(eltype(v))
+    M = [z -v[3] v[2]
+        v[3] z -v[1]
+        -v[2] v[1] z]
 
     return M
 end
@@ -36,11 +37,17 @@ end
     Returns: 
      - M:  Left-side matrix representing the given quaternion     |  [4, 4]
 """
-function L(q)
+function L(q::AbstractArray{<:Real,1})
     qₛ, qᵥ = q[1], q[2:4]
 
-    M = [qₛ -qᵥ'
-        qᵥ qₛ*I(3)+hat(qᵥ)]
+    temp = qₛ * I(3) + hat(qᵥ)
+    M = zeros(eltype(q), 4, 4)
+    M[1, 1] = qₛ
+    M[2:4, 1] = qᵥ
+    M[1, 2:4] = -qᵥ
+    M[2:4, 2:4] = temp
+    # M = [qₛ -qᵥ'
+    #      qᵥ temp]
 
     return M
 end
@@ -57,7 +64,7 @@ end
     Returns: 
      - M:  Right-side matrix representing the given quaternion     |  [4, 4]
 """
-function R(q)
+function R(q::AbstractArray{<:Real,1})
     qₛ, qᵥ = q[1], q[2:4]
 
     M = [qₛ -qᵥ'
@@ -77,7 +84,7 @@ end
     Returns:
      - q̇:  Derivative of attitude, parameterized as a quaternion     |  [4,]
 """
-function qdot(q, ω)
+function qdot(q::AbstractArray{<:Real,1}, ω::AbstractArray{<:Real,1})
     q̇ = 0.5 * L(q) * H * ω
     return q̇
 end
@@ -96,12 +103,12 @@ const T = [1 0 0 0; 0 -1 0 0; 0 0 -1 0; 0 0 0 -1]   # Forms the conjugate of q, 
     Returns:
      - Q: Rotation matrix representing the same rotation
 """
-function quaternionToMatrix(q)
+function quaternionToMatrix(q::AbstractArray{<:Real,1})
     s, v = q[1], q[2:4]
     return I(3) + 2 * hat(v) * (s * I(3) + hat(v))
 end
 
-function qErr(q₁, q₂)
+function qErr(q₁::AbstractArray{<:Real,1}, q₂::AbstractArray{<:Real,1})
     return norm((L(q₁)'*q₂)[2:4])
 end
 
