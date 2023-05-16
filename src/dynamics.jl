@@ -51,7 +51,7 @@ function cartesian_acceleration_torque(x::RBState, u::AbstractArray{<:Real}, mod
     τ = @MVector zeros(eltype(x), 3) # body frame torque
 
     # spherical harmonic gravity
-    a += SatelliteDynamics.accel_gravity(x, R, env.config.n_gravity, env.config.m_gravity)
+    a += SatelliteDynamics.accel_gravity(x.position, R, env.config.n_gravity, env.config.m_gravity)
 
     # add control torque and acceleration
     ca, cτ = control(x, model.control_type, u, model, env)

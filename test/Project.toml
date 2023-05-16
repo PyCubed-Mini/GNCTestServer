@@ -1,7 +1,9 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MsgPack = "99f44e22-a591-53d1-9472-aa23ef4bd671"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
+SatelliteDynamics = "0e7c1a32-1b9f-5532-88a4-e668712d6a4c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

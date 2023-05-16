@@ -1,5 +1,5 @@
 using Test
-using SatellitePlayground
+include("../src/SatellitePlayground.jl")
 SP = SatellitePlayground
 
 @testset "qdot" begin
@@ -7,10 +7,12 @@ SP = SatellitePlayground
   Test.@inferred SP.qdot(state.attitude, state.angular_velocity)
 end
 
-@testset "accel_perturbations" begin
+
+@testset "cartesian_acceleration_torque" begin
   state = SP.initialize_orbit()
   env = copy(SP.default_environment)
-  Test.@inferred SP.accel_perturbations(env.time, state.position, state.velocity)
+  model = copy(SP.default_model)
+  Test.@inferred SP.cartesian_acceleration_torque(state, [0.0, 0.0, 0.0], model, env)
 end
 
 
@@ -19,7 +21,7 @@ end
   params = copy(SP.default_parameters)
   env = copy(SP.default_environment)
   u = SP.Control([0.0, 0.0, 0.0])
-  Test.@inferred SP.dynamics(state, params, env, u, env.time)
+  Test.@inferred SP.dynamics(state, params, env, u)
 end
 
 @testset "rk4" begin
