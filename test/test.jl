@@ -72,8 +72,11 @@ end
     # 4.517416 seconds (14.91 M allocations: 780.852 MiB, 7.04% gc time, 2.35% compilation time)
     # 3.893083 seconds (15.89 M allocations: 776.579 MiB, 8.71% gc time, 1.71% compilation time)
     # 3.608502 seconds (13.51 M allocations: 711.263 MiB, 8.77% gc time, 1.50% compilation time)
+    # 2.770832 seconds (13.51 M allocations: 711.281 MiB, 7.51% gc time, 1.98% compilation time)
+    # 3.839175 seconds (16.68 M allocations: 1.065 GiB, 13.51% gc time, 2.75% compilation time)
     data = SP.vec_to_mat(data)
-    display(plot(time, data, title="DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
+    time /= 60
+    display(plot(time, data, title="DeTumbling", xlabel="Time (minutes)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end
 
 @testset "io" begin
@@ -114,7 +117,7 @@ end
     controls = [control_law for _ in 1:N]
     measures = [measure for _ in 1:N]
 
-    @time (data, time) = SP.simulate_multiple(controls, max_iterations=50_000,
+    @time (data, time) = SP.simulate_multiple(controls, max_iterations=10_000,
         measures=measures, log_step=log_step, terminal_condition=terminate, dt=0.5)
     data = SP.vec_to_mat(data)
     display(plot(time, data, title="DeTumbling Multiple Satellites", xlabel="Time (s)", ylabel="|Angular Velocity| (rad/s)", labels=["ω1" "ω2" "ω3" "ω4"]))

@@ -52,7 +52,7 @@ function IGRF13(r_eci, epc::Epoch)
     B_eci_nT = eci_Q_ecef * ecef_Q_ned * B_ned_nT
 
     # convert from nT to T
-    return B_eci_nT * 1e-9
+    return B_eci_nT * 1e-9 * 1e-6
 end
 const gh = SA[
     -29404.8, -1450.9, 4652.5, -2499.6, 2982.0, -2991.6,    # 2020

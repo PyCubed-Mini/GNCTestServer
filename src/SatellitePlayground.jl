@@ -12,45 +12,15 @@ include("mag_field.jl")
 include("communication.jl")
 include("RBState.jl")
 include("initial_conditions.jl")
+include("environment.jl")
+include("model.jl")
+include("dynamics.jl")
 
-export simulator, Control, Parameters, RBState, world_to_body
-
-"""
-    Parameters
-
-"""
-mutable struct Parameters
-    J::Array{Float64,2} # Inertia matrix
-end
-
-Base.copy(p::Parameters) = Parameters(copy(p.J))
-
-mutable struct Control
-    m::Array{Float64,1} # Control input
-end
+export simulator, Control, Model, RBState, world_to_body
 
 function Base.zero(::Type{Control})
     return Control(zeros(3))
 end
-
-J = [0.3 0 0; 0 0.3 0; 0 0 0.3]  # Arbitrary inertia matrix for the Satellite 
-default_parameters = Parameters(J)
-
-"""
-    Default enviorment type for the simulation
-
-Should be in the body frame
-"""
-mutable struct DefaultEnvironment
-    time::Epoch
-    b::Array{Float64,1} # Magnetic field
-end
-Base.copy(e::DefaultEnvironment) = DefaultEnvironment(e.time, copy(e.b))
-
-default_environment = DefaultEnvironment(
-    Epoch(2020, 11, 30),
-    [0.0, 0.0, 0.0]
-)
 
 """
 Rung-Kutta 4th order integrator
@@ -69,43 +39,26 @@ end
 """
 Rung-Kutta 4th order integrator, with full simulator parameters
 """
-@inline function rk4(x, t, dt, parameters, environment, control)
-    k₁ = dt * dynamics(x, parameters, environment, control, t)
-    k₂ = dt * dynamics(x + k₁ * 0.5, parameters, environment, control, t + dt * 0.5)
-    k₃ = dt * dynamics(x + k₂ * 0.5, parameters, environment, control,t + dt * 0.5)
-    k₄ = dt * dynamics(x + k₃, parameters, environment, control, t + dt)
+@inline function rk4(x, dt, parameters, environment, control)
+    t = environment.time
+    k₁ = dt * dynamics(x, parameters, environment, control)
+    environment.time = t + dt * 0.5
+    k₂ = dt * dynamics(x + k₁ * 0.5, parameters, environment, control)
+    k₃ = dt * dynamics(x + k₂ * 0.5, parameters, environment, control)
+    environment.time = t + dt
+    k₄ = dt * dynamics(x + k₃, parameters, environment, control)
+    environment.time = t
 
     return x + (1.0 / 6.0) * (k₁ + 2.0 * k₂ + 2.0 * k₃ + k₄)
 end
 
-""" 
-Returns the derivative of the state, given the current state, parameters, control input, and time.
-
-Arguments:
-- state: the current state of the spacecraft                             | State
-- parameters: the parameters of the spacecraft                           | Parameters
-- control: the control input to apply to the spacecraft                  | Control
-- t: the current time                                                    | Epoch
-
-Returns:
-- state: the derivative of the state                                     | State
-"""
-function dynamics(state::RBState, parameters::Parameters, environment::DefaultEnvironment, control::Control, t::Epoch)::RBState
-    u = cross(control.m, environment.b)
-    return RBState{eltype(state)}(
-        state.velocity,
-        accel_perturbations(t, state.position, state.velocity),
-        qdot(state.attitude, state.angular_velocity),
-        parameters.J \ (u - cross(state.angular_velocity, parameters.J * state.angular_velocity))
-    )
-end
 
 """ 
 Integrate the state forward by dt seconds, using the given control input.
 
 Arguments
 - state: the current state of the spacecraft                             | State
-- parameters: the parameters of the spacecraft                           | Parameters
+- parameters: the parameters of the spacecraft                           | Model
 - control: the control input to apply to the spacecraft                  | Control
 - t: the current time                                                    | Epoch
 - dt: the time step to integrate forward by                              | Float64
@@ -113,58 +66,11 @@ Arguments
 Returns
 - state: the state of the spacecraft after the integration               | State
 """
-function integrate_state(state::RBState, parameters::Parameters, environment::DefaultEnvironment, control::Control, dt::Float64)::RBState
-    new_state = rk4(state, environment.time, dt, parameters, environment, control)
+function integrate_state(state::RBState, parameters::Model, environment::Environment, control::Control, dt::Float64)::RBState
+    new_state = rk4(state, dt, parameters, environment, control)
     return renorm(new_state)
 end
 
-"""
-Generates the acceleration for a spacecraft in LEO. Accounts for a variety of factors, 
-including spherical harmonics, atmospheric drag, SRP, and thirdbody from sun and moon
-
-ForwardDiff friendly (written by Kevin)
-"""
-function accel_perturbations(epc::Epoch, r, v;
-    mass::Real=1.0, area_drag::Real=0.01, coef_drag::Real=2.3, area_srp::Real=1.0,
-    coef_srp::Real=1.8, n_grav::Integer=10, m_grav::Integer=10, third_body::Bool=true)::SVector{3,Real}
-
-    # These functions don't like static, so we gotta adjust
-    x = [r; v]
-
-    # Compute ECI to ECEF Transformation -> IAU2010 Theory
-    PN = bias_precession_nutation(epc)
-    E = earth_rotation(epc)
-    W = polar_motion(epc)
-    R = W * E * PN
-
-    # Compute sun and moon position
-    r_sun = sun_position(epc)
-    r_moon = moon_position(epc)
-
-    # Compute acceleration (eltype(x) makes this forward diff friendly)
-    a = zeros(eltype(x), 3)
-
-    # spherical harmonic gravity
-    a += accel_gravity(x, R, n_grav, m_grav)
-
-    # atmospheric drag
-    ρ = density_harris_priester(epc, r)
-    a += accel_drag([r; v], ρ, mass, area_drag, coef_drag, Array{Real,2}(PN))
-
-    # SRP
-    nu = eclipse_cylindrical(x, r_sun)  # conical doesn't work correctly
-    a += nu * accel_srp(x, r_sun, mass, area_srp, coef_srp)
-
-    if third_body
-        # third body sun
-        a += accel_thirdbody_sun(x, r_sun)
-
-        # third body moon
-        a += accel_thirdbody_moon(x, r_moon)
-    end
-
-    return a
-end
 
 """
     initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothing, Rₑ=6378.137e3, μ=3.9860044188e14)
@@ -222,10 +128,6 @@ function initialize_orbit(; r=nothing, v=nothing, a=nothing, q=nothing, ω=nothi
     return RBState(r₀, v₀, q₀, ω₀)
 end
 
-function update_environment(state::RBState, env::DefaultEnvironment)
-    env.b = world_to_body(state, IGRF13(state.position, env.time))
-end
-
 mutable struct FunctionSim
     dt::Float64
     control::Control
@@ -252,7 +154,7 @@ However, by setting the log_* functions one can log arbitrary data.
 """
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
-    initial_condition=nothing, measure=default_measure, initial_parameters=default_parameters,
+    initial_condition=nothing, measure=default_measure, initial_parameters=default_model,
     initial_environment=default_environment, silent=false)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
@@ -286,7 +188,7 @@ end
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000,
     initial_condition=nothing, measure=default_measure,
-    initial_parameters=default_parameters, initial_environment=default_environment,
+    initial_parameters=default_model, initial_environment=default_environment,
     silent=false)
     function setup()
         println("Creating shared memory and semaphores...")
@@ -346,7 +248,7 @@ end
 function simulate_multiple(controls; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000, dt=0.1,
     initial_conditions=nothing, measures=nothing,
-    initial_parameters=nothing, initial_environment=default_environment)
+    models=nothing, initial_environment=default_environment)
     N = length(controls)
     @assert (N > 0)
     @assert (isnothing(initial_conditions) || length(initial_conditions) == N)
@@ -357,10 +259,10 @@ function simulate_multiple(controls; log_init=default_log_init, log_step=default
     else
         states = initial_conditions
     end
-    if isnothing(initial_parameters)
-        params = [copy(default_parameters) for _ = 1:N]
+    if isnothing(models)
+        models = [copy(default_model) for _ = 1:N]
     else
-        params = initial_parameters
+        models = models
     end
     if isnothing(measures)
         measure_funcs = [default_measure for _ = 1:N]
@@ -378,12 +280,12 @@ function simulate_multiple(controls; log_init=default_log_init, log_step=default
 
     for i = 1:max_iterations
 
-        for i = 1:N
-            update_environment(states[i], env)
-            u = controls[i](measure_funcs[i](states[i], env))
-            states[i] = integrate_state(states[i], params[i], env, u, dt)
+        for j = 1:N
+            local_env = state_view_environment(states[j], env)
+            u = controls[j](measure_funcs[j](states[j], local_env))
+            states[j] = integrate_state(states[j], models[j], local_env, u, dt)
         end
-        env.time += dt
+        update_environment(env, dt)
 
         log_step(hist, states)
         append!(time_hist, env.time - start_time)
@@ -402,7 +304,7 @@ end
 function simulate_helper(setup::Function, step::Function, cleanup::Function,
     log_init::Function, log_step::Function,
     terminal_condition::Function, max_iterations, initial_condition, measure::Function,
-    initial_parameters::Parameters, initial_environment, silent::Bool)
+    model::Model, initial_environment, silent::Bool)
     if isnothing(initial_condition)
         state = initialize_orbit()
     else
@@ -412,7 +314,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
         println("intialized orbit!")
     end
 
-    params = copy(initial_parameters)
+    model = copy(model)
 
     sim = setup()
 
@@ -424,20 +326,21 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
 
     try
         for i = 1:max_iterations
-            update_environment(state, env)
+            local_env = state_view_environment(state, env)
 
-            step(sim, measure(state, env), i)
+            step(sim, measure(state, local_env), i)
 
-            state = integrate_state(state, params, env, sim.control, sim.dt)
-            env.time += sim.dt
+            state = integrate_state(state, model, local_env, sim.control, sim.dt)
+
+            update_environment(env, sim.dt)
 
             log_step(hist, state)
             append!(time_hist, env.time - start_time)
             if !silent
                 print("\r\033[K")
-                print_iteration(i, max_iterations, state, env, sim)
+                print_iteration(i, max_iterations, state, local_env, sim)
             end
-            if terminal_condition(state, params, time, i)
+            if terminal_condition(state, model, time, i)
                 break
             end
         end
