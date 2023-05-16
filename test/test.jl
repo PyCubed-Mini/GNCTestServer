@@ -22,7 +22,7 @@ end
         point = norm(state.position) - earth_radius
         push!(hist, point)
     end
-    (data, time) = SP.simulate(no_control, max_iterations=10000, log_step=log_step, dt=10.0)
+    (data, time) = SP.simulate(no_control, max_iterations=10000, log_step=log_step, dt=5.0)
     data = SP.vec_to_mat(data)
     data /= 1000
     display(plot(time, data, title="Distance from earth", xlabel="Time (s)", ylabel="Distance from earth (km)", labels="r"))
