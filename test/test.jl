@@ -66,8 +66,12 @@ end
     @inline function measure(state, env)
         return (state.angular_velocity, env.b)
     end
+    
+    model = copy(SP.pqmini_model)
+    model.control_limit = [Inf, Inf, Inf]
 
-    @time (data, time) = SP.simulate(control_law, max_iterations=10_000, measure=measure, log_step=SP.angular_log_step)
+    @time (data, time) = SP.simulate(control_law, max_iterations=10_000, 
+        measure=measure, log_step=SP.angular_log_step, model=model)
     # 4.344277 seconds (15.07 M allocations: 795.512 MiB, 10.87% gc time, 2.39% compilation time)
     # 4.517416 seconds (14.91 M allocations: 780.852 MiB, 7.04% gc time, 2.35% compilation time)
     # 3.893083 seconds (15.89 M allocations: 776.579 MiB, 8.71% gc time, 1.71% compilation time)
@@ -81,7 +85,10 @@ end
 
 @testset "io" begin
     Random.seed!(1234)
-    (data, time) = SP.simulate(`sh runfakesat.sh`, max_iterations=2000, log_step=SP.angular_log_step)
+    model = copy(SP.pqmini_model)
+    model.control_limit = [Inf, Inf, Inf]
+    (data, time) = SP.simulate(`sh runfakesat.sh`, max_iterations=2000, log_step=SP.angular_log_step,
+        model=model)
     data = SP.vec_to_mat(data)
     display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end
@@ -116,9 +123,13 @@ end
     N = 4
     controls = [control_law for _ in 1:N]
     measures = [measure for _ in 1:N]
+    model = copy(SP.pqmini_model)
+    model.control_limit = [Inf, Inf, Inf]
+    models = [model for _ in 1:N]
 
     @time (data, time) = SP.simulate_multiple(controls, max_iterations=10_000,
-        measures=measures, log_step=log_step, terminal_condition=terminate, dt=0.5)
+        measures=measures, models=models, log_step=log_step, 
+        terminal_condition=terminate, dt=0.5)
     data = SP.vec_to_mat(data)
     display(plot(time, data, title="DeTumbling Multiple Satellites", xlabel="Time (s)", ylabel="|Angular Velocity| (rad/s)", labels=["ω1" "ω2" "ω3" "ω4"]))
 end

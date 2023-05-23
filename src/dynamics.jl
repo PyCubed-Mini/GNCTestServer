@@ -54,6 +54,7 @@ function cartesian_acceleration_torque(x::RBState, u::AbstractArray{<:Real}, mod
     a += SatelliteDynamics.accel_gravity(x.position, R, env.config.n_gravity, env.config.m_gravity)
 
     # add control torque and acceleration
+    u = clamp.(u, -model.control_limit, model.control_limit)
     ca, cτ = control(x, model.control_type, u, model, env)
     a += ca
     τ += cτ

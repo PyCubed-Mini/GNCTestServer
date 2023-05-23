@@ -152,7 +152,7 @@ However, by setting the log_* functions one can log arbitrary data.
 """
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
-    initial_condition=nothing, measure=default_measure, initial_parameters=default_model,
+    initial_condition=nothing, measure=default_measure, model=default_model,
     environment=default_environment, silent=false)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
@@ -167,7 +167,7 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
         log_init, log_step,
         terminal_condition, max_iterations,
         initial_condition, measure,
-        initial_parameters, environment,
+        model, environment,
         silent)
 end
 
@@ -186,7 +186,7 @@ end
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000,
     initial_condition=nothing, measure=default_measure,
-    initial_parameters=default_model, environment=default_environment,
+    model=default_model, environment=default_environment,
     silent=false)
     function setup()
         println("Creating shared memory and semaphores...")
@@ -229,7 +229,7 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         log_init, log_step,
         terminal_condition, max_iterations,
         initial_condition, measure,
-        initial_parameters, environment,
+        model, environment,
         silent)
 end
 

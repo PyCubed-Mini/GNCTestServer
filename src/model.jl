@@ -28,16 +28,18 @@ Defines how to model the satellite:
     - actuation type (magnetic torque coils or reaction wheels)
     - faces (for drag)
 """
-struct Model
+mutable struct Model
     mass::Real # kg
     inertia::AbstractArray{Float64,2} # Inertia matrix,
     control_type::Val # Type of control
     center_of_mass::AbstractArray{Float64,1} # Center of mass
     faces::AbstractArray{SatelliteFace,1} # Faces for drag
     drag_coefficient::Real # C_D, dimensionless
-    max_dipoles::AbstractArray{Float64,1} # Max dipole moment for each axis
-    Model(mass, inertia, control_type, center_of_mass, faces, drag_coefficient, max_dipoles) = new(mass, inertia, control_type, center_of_mass, faces, drag_coefficient, max_dipoles)
-    Model(;mass, inertia, control_type, center_of_mass, faces, drag_coefficient, max_dipoles) = new(mass, inertia, control_type, center_of_mass, faces, drag_coefficient, max_dipoles) 
+    control_limit::AbstractArray{Float64,1} # Max dipole moment for each axis
+    Model(mass, inertia, control_type, center_of_mass, faces, drag_coefficient, control_limit) = new(mass, inertia, control_type, center_of_mass, faces, drag_coefficient, control_limit)
+    Model(; mass=1, inertia=I(3), control_type=Val(:dipole),
+        center_of_mass=[0.0, 0.0, 0.0],
+        faces=[], drag_coefficient=0, control_limit=[Inf, Inf, Inf]) = new(mass, inertia, control_type, center_of_mass, faces, drag_coefficient, control_limit)
 end
 
 
@@ -48,7 +50,7 @@ Base.copy(m::Model) = Model(
     copy(m.center_of_mass),
     copy(m.faces),
     copy(m.drag_coefficient),
-    copy(m.max_dipoles)
+    copy(m.control_limit)
 )
 
 mutable struct Control
@@ -105,6 +107,6 @@ pqmini_model = Model(
     center_of_mass=[0.0, 0.0, 0.0],
     faces=pqmini_faces,
     drag_coefficient=2.2, # CD
-    max_dipoles=pqmini_dipole_magnitude * ones(3),
+    control_limit=pqmini_dipole_magnitude * ones(3),
 )
 default_model = pqmini_model
