@@ -1,5 +1,3 @@
-# Version 0.1.0
-
 module SatellitePlayground
 import Base: *, +
 using LinearAlgebra
@@ -155,7 +153,7 @@ However, by setting the log_* functions one can log arbitrary data.
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
     initial_condition=nothing, measure=default_measure, initial_parameters=default_model,
-    initial_environment=default_environment, silent=false)
+    environment=default_environment, silent=false)
     function setup()
         return FunctionSim(dt, Control([0.0, 0.0, 0.0]))
     end
@@ -169,7 +167,7 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
         log_init, log_step,
         terminal_condition, max_iterations,
         initial_condition, measure,
-        initial_parameters, initial_environment,
+        initial_parameters, environment,
         silent)
 end
 
@@ -188,7 +186,7 @@ end
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000,
     initial_condition=nothing, measure=default_measure,
-    initial_parameters=default_model, initial_environment=default_environment,
+    initial_parameters=default_model, environment=default_environment,
     silent=false)
     function setup()
         println("Creating shared memory and semaphores...")
@@ -231,7 +229,7 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         log_init, log_step,
         terminal_condition, max_iterations,
         initial_condition, measure,
-        initial_parameters, initial_environment,
+        initial_parameters, environment,
         silent)
 end
 
@@ -304,7 +302,7 @@ end
 function simulate_helper(setup::Function, step::Function, cleanup::Function,
     log_init::Function, log_step::Function,
     terminal_condition::Function, max_iterations, initial_condition, measure::Function,
-    model::Model, initial_environment, silent::Bool)
+    model::Model, environment::Environment, silent::Bool)
     if isnothing(initial_condition)
         state = initialize_orbit()
     else
@@ -318,7 +316,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
 
     sim = setup()
 
-    env = copy(initial_environment)
+    env = copy(environment)
     start_time = env.time
 
     hist = log_init(state)

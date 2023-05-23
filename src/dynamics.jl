@@ -58,10 +58,13 @@ function cartesian_acceleration_torque(x::RBState, u::AbstractArray{<:Real}, mod
     a += ca
     τ += cτ
 
-    a_drag_body, τ_drag = drag_acceleration_torque(x, model, env) # body frame
-    a_drag_inertial = body_to_world * a_drag_body
-    τ += τ_drag
-    a += a_drag_inertial
+    # drag
+    if env.config.include_drag
+        a_drag_body, τ_drag = drag_acceleration_torque(x, model, env) # body frame
+        a_drag_inertial = body_to_world * a_drag_body
+        τ += τ_drag
+        a += a_drag_inertial
+    end
 
     # Solar radiation pressure
     if env.config.include_solar_radiation_pressure

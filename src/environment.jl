@@ -1,10 +1,20 @@
 struct EnvironmentConfig
   n_gravity::Int
   m_gravity::Int
+  include_drag::Bool
   include_solar_radiation_pressure::Bool
   include_sun_gravity::Bool
   include_moon_gravity::Bool
   include_gravity_gradient_torque::Bool
+  EnvironmentConfig(; n_gravity=10, m_gravity=10, include_drag=true,
+    include_solar_radiation_pressure=true, include_sun_gravity=true,
+    include_moon_gravity=true, include_gravity_gradient_torque=true) =
+    new(n_gravity, m_gravity, include_drag, include_solar_radiation_pressure,
+      include_sun_gravity, include_moon_gravity, include_gravity_gradient_torque)
+  EnvironmentConfig(n_gravity, m_gravity, include_drag, include_solar_radiation_pressure,
+    include_sun_gravity, include_moon_gravity, include_gravity_gradient_torque) =
+    new(n_gravity, m_gravity, include_drag, include_solar_radiation_pressure,
+      include_sun_gravity, include_moon_gravity, include_gravity_gradient_torque)
 end
 
 """
@@ -21,10 +31,10 @@ end
 
 Base.copy(e::Environment) = Environment(e.time, copy(e.b), copy(e.config))
 Base.copy(e::EnvironmentConfig) = EnvironmentConfig(e.n_gravity, e.m_gravity,
-  e.include_solar_radiation_pressure, e.include_sun_gravity,
-   e.include_moon_gravity, e.include_gravity_gradient_torque)
+  e.include_drag, e.include_solar_radiation_pressure, e.include_sun_gravity,
+  e.include_moon_gravity, e.include_gravity_gradient_torque)
 
-default_environment_config = EnvironmentConfig(10, 10, true, true, true, true)
+default_environment_config = EnvironmentConfig()
 
 default_environment = Environment(
   Epoch(2020, 11, 30),
