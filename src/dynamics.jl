@@ -2,10 +2,10 @@ using StaticArrays
 using SatelliteDynamics
 
 """ 
-    dynamics(state::RBState, parameters::Parameters, environment::Environment, control::Control, t::Epoch)::RBState
+    dynamics(state::RBState, model::Model, environment::Environment, control::Control)
 
 You can configure which types of effects are taken into account (J2, SRP, etc...) by tweaking the environment.
-You can configure the satellite's parameters such as intertia by tweaking the parameters.
+You can configure the satellite's parameters such as intertia by tweaking the model.
 """
 function dynamics(state::RBState, model::Model, environment::Environment, control::Control)::RBState
     a, τ = cartesian_acceleration_torque(state, control.m, model, environment)
@@ -33,9 +33,9 @@ function control(x::RBState, ::Val{:dipole}, u::AbstractArray, model::Model, env
 end
 
 """
-    cartesian_acceleration_torque(x::RBSTATE, params::OrbitSimulationParameters, epc::Epoch)
+    cartesian_acceleration_torque(x::RBSTATE, u::AbstractArray{<:Real}, model::Model, env::Environment)
 
-Compute the acceleration and torque experienced by the satellite
+Compute the acceleration and torque experienced by the satellite given a state, control, model, and environment.
 """
 function cartesian_acceleration_torque(x::RBState, u::AbstractArray{<:Real}, model::Model, env::Environment)
     # Compute ECI to ECEF Transformation -> IAU2010 Theory
@@ -97,7 +97,7 @@ function cartesian_acceleration_torque(x::RBState, u::AbstractArray{<:Real}, mod
 end
 
 """
-    solar_acceleration_torque(x::Vector{<:Real}, epc::SatelliteDynamics.Epoch, params::OrbitSimulationParameters)
+    solar_acceleration_torque(x::RBSTATE, model::Model, env::Environment)
 
 Compute the acceleration and torque due to solar radiation pressure on each face.
 Assumes the SRP center of pressure is the geometric center of each face.
@@ -130,7 +130,7 @@ function solar_acceleration_torque(x::RBState, model::Model, env::Environment)
 end
 
 """
-    drag_acceleration_torque(airspeed, epc, params)
+    drag_acceleration_torque(x::RBState, model::Model, env::Environment)
 
 Compute the resultant forces and torques on a spacecraft due to drag.
 See Markley and Crassidis pg 108
@@ -163,7 +163,7 @@ function drag_acceleration_torque(x::RBState, model::Model, env::Environment)
 end
 
 """
-    airspeed_from_state(x)
+    airspeed_from_state(x::RBState)
 
 Compute the inertial-frame airspeed wrt to the atmosphere given the satellite state `x`
 """
@@ -175,7 +175,7 @@ function airspeed_from_state(x::RBState)
 end
 
 """
-    magnetic_torque()
+    magnetic_torque(x::RBState, u::AbstractArray{<:Real}, model::Model, env::Environment)
 
 Returns the magnetic torque on the satellite due to the magnetic field of the earth.
 """
@@ -185,12 +185,12 @@ function magnetic_torque(x::RBState, u::AbstractArray{<:Real}, model::Model, env
 end
 
 """
-    gravity_gradient_torque
+    gravity_gradient_torque(x::RBState, model::Model)
 
     Computes the gravity gradient torque on the satellite.
     See "Fundementals of Spacecraft Attitude Determination and Control" by Markley and Crassidis 3.3.6.1
 """
-function gravity_gradient_torque(x::AbstractArray{<:Real}, model::Model)
+function gravity_gradient_torque(x::RBState, model::Model)
     μ = SatelliteDynamics.GM_EARTH
 
     r_inertial = x.position 

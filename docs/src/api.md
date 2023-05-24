@@ -13,10 +13,23 @@ The API all revolves around the `simulate` function which has two modes of runni
 simulate
 ```
 
+## Other Simulation Modes
+For simulating multiple satellites at once use:
+```@docs
+simulate_multiple
+```
+
+## Dynamics
+There are two ways to change the dynamics of the simulation:
+- Change the invidual satellite model (mass, inertia, control type, etc.)
+- Change the environment model (e.g. earth gravity model, solar radiation pressure model, etc.)
+
 ## State
 ```@docs
 RBState
 ```
+
+
 
 ## Defaults
 ```@docs

@@ -54,7 +54,7 @@ However, you change change this by setting `max_iterations`, or `terminal_condit
 
 In our case we will set increase the number of maximum iterations to 10,000, and make the simulation terminate once the angular velocity drops below 0.01 radians.
 ```julia
-function terminate(state, params, time, i)
+function terminate(state::RBState, env::Environment, i::Int)
     return norm(state.angular_velocity) < 0.01
 end
 (hist, time) = SP.simulate(no_control, max_iterations=10_000, terminal_condition=terminate)

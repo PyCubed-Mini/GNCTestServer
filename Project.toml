@@ -1,7 +1,7 @@
 name = "SatellitePlayground"
 uuid = "42def6c6-fd6a-4211-8419-600c79e00ff9"
 authors = ["thetazero <lesha.seletskiy@gmail.com>"]
-version = "0.4.0"
+version = "0.4.1"
 
 [deps]
 InterProcessCommunication = "a7427343-1d15-5490-a218-bfcb7db836a2"

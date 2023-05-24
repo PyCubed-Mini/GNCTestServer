@@ -134,21 +134,25 @@ end
 """
     simulate(control::Function)
     simulate(launch::Cmd)
-    simulate(control::Function, log_init=default_log_init, log_step=default_log_step,
-    terminal_condition=default_terminate, max_iterations=1000,
-    dt=0.5, initial_condition=nothing, measure=default_measure)
+    simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
+        terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
+        initial_condition=nothing, measure=default_measure, model=default_model,
+        environment=default_environment, silent=false)
 
 Runs a simulation from a random initial condition (or from `initial_condition`) if given.
 The simulation runs for `max_iterations` steps.
 
-The control input to the magnetorquer coils at each time step is set either by the given control 
-function, or by the GNCTestClient launched by the launch command.
+The model specifies things like the mass, inertia, drag coefficient of the satellite and control type (magnetorquer, reaction wheel, etc).
+The environment specifies things like the magnetic field.
 
-By default the controller recieves the (state, parameters, time) in the body frame.
+The control input is computed via `control(measurement)` where `measurement` is the output of the measurement function.
+Or it is computed by an external process using `GNCTestClient.py` if `launch` is given.
+
+By default the controller recieves the (state, environment) in the body frame.
 But this can be changed by setting the measurement function `measure`.
 
-The simulation logs the angular velocity and its mangitude by default.
-However, by setting the log_* functions one can log arbitrary data.
+The simulation logs the state of the satellite at each time step by default.
+This can be changed by setting the log_* functions.
 """
 function simulate(control::Function; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
@@ -243,6 +247,13 @@ function print_iteration(i, max_iterations)
     @printf("[%d/%d]", i, max_iterations)
 end
 
+"""
+    simulate_multiple(controls::AbstractArray{Function})
+    simulate_multiple(controls::AbstractArray{Function}; log_init=default_log_init, log_step=default_log_step,
+        terminal_condition=default_terminate, max_iterations=1000, dt=0.1,
+        initial_conditions=nothing, measures=nothing,
+        models=nothing, initial_environment=default_environment)
+"""
 function simulate_multiple(controls; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000, dt=0.1,
     initial_conditions=nothing, measures=nothing,
@@ -289,7 +300,7 @@ function simulate_multiple(controls; log_init=default_log_init, log_step=default
         append!(time_hist, env.time - start_time)
         print("\r\033[K")
         print_iteration(i, max_iterations)
-        if terminal_condition(states, env, time, i)
+        if terminal_condition(states, env, i)
             break
         end
     end
@@ -338,7 +349,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
                 print("\r\033[K")
                 print_iteration(i, max_iterations, state, local_env, sim)
             end
-            if terminal_condition(state, model, time, i)
+            if terminal_condition(state, env, i)
                 break
             end
         end
@@ -403,20 +414,20 @@ function vec_to_mat(hist)
 end
 
 """
-    default_terminate(state, params, time, i)
+    default_terminate(state::RBState, env::Environment, i::Int)
 
 default termination condition for `simulate`, always returns `false`.
 """
-function default_terminate(state, params, time, i)
+function default_terminate(state::RBState, env::Environment, i::Int)
     return false
 end
 
 """
-    default_measure(state, params, t)
+    default_measure(state::RBState, env::Environment)
 
-Default measurement function used by `simulate`, returns the state and parameters.
+Default measurement function used by `simulate`, returns the state and environment.
 """
-@inline function default_measure(state, env)
+@inline function default_measure(state::RBState, env::Environment)
     return (state, env)
 end
 

@@ -22,7 +22,7 @@ end
         point = norm(state.position) - earth_radius
         push!(hist, point)
     end
-    (data, time) = SP.simulate(no_control, max_iterations=10000, log_step=log_step, dt=5.0)
+    (data, time) = SP.simulate(no_control, max_iterations=10000, log_step=log_step, dt=4.0)
     data = SP.vec_to_mat(data)
     data /= 1000
     display(plot(time, data, title="Distance from earth", xlabel="Time (s)", ylabel="Distance from earth (km)", labels="r"))
@@ -78,6 +78,7 @@ end
     # 3.608502 seconds (13.51 M allocations: 711.263 MiB, 8.77% gc time, 1.50% compilation time)
     # 2.770832 seconds (13.51 M allocations: 711.281 MiB, 7.51% gc time, 1.98% compilation time)
     # 3.839175 seconds (16.68 M allocations: 1.065 GiB, 13.51% gc time, 2.75% compilation time)
+    # 3.799204 seconds (16.92 M allocations: 1.079 GiB, 12.32% gc time, 3.54% compilation time)
     data = SP.vec_to_mat(data)
     time /= 60
     display(plot(time, data, title="DeTumbling", xlabel="Time (minutes)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
@@ -116,7 +117,7 @@ end
         push!(hist, ω)
     end
 
-    function terminate(states, env, time, i)
+    function terminate(states, env, i)
         return all(norm(state.angular_velocity) < 0.1 for state in states)
     end
 
