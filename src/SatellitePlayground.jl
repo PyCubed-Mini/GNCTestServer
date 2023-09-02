@@ -1,7 +1,6 @@
 module SatellitePlayground
 import Base: *, +
 using LinearAlgebra
-using MsgPack
 using Printf
 using SatelliteDynamics
 using Sockets
