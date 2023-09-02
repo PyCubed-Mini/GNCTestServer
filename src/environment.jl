@@ -42,6 +42,22 @@ default_environment = Environment(
   default_environment_config
 )
 
+spherical_only_environment_config = EnvironmentConfig(
+  n_gravity=1,
+  m_gravity=1,
+  include_drag=false,
+  include_solar_radiation_pressure=false,
+  include_sun_gravity=false,
+  include_moon_gravity=false,
+  include_gravity_gradient_torque=false
+)
+
+spherical_only_environment = Environment(
+  Epoch(2020, 11, 30),
+  [0.0, 0.0, 0.0],
+  spherical_only_environment_config
+)
+
 function update_environment(env::Environment, dt)
   env.time += dt
 end

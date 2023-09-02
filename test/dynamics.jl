@@ -1,6 +1,7 @@
 begin
     using Test
     using LinearAlgebra
+    using SatelliteDynamics
     include("../src/SatellitePlayground.jl")
     SP = SatellitePlayground
 end
@@ -54,7 +55,34 @@ end
     @time a, τ = SP.cartesian_acceleration_torque(x, u, model, env)
     # 0.000127 seconds (383 allocations: 25.406 KiB)
     a_expected = [-8.696182355824059, -4.582971748165271e-5, -0.00010804973126869058]
-    τ_expected= [6.396377248887438e-5, -7.568827548517535e-5, -1.4402067798532605e-5]
+    τ_expected= [1.8457691095622258e-7, -1.3719520438198725e-7, -5.3585508411985804e-8]
     @test a ≈ a_expected
     @test τ ≈ τ_expected
+end
+
+@testset "spherical gravity" begin
+    u = [0.0,0.0,0.0]
+    r = 6.7751363e6
+    x = SP.RBState([r
+        0.0
+        0.0
+        0.0
+        8155.162619089651
+        0.0
+        -0.9442165245970416
+        -0.11229349782424022
+        0.28649111413323164
+        0.117337830843173
+        0.013209720675656584
+        0.36976717864576536
+        -0.548490925366443]
+    )
+    model = SP.default_model
+    env = SP.spherical_only_environment
+    env = SP.state_view_environment(x, env)
+    @time a, τ = SP.cartesian_acceleration_torque(x, u, model, env)
+    a_expected = [-SatelliteDynamics.GM_EARTH / r^2, 0.0, 0.0]
+    τ_expected = [0.0, 0.0, 0.0]
+    @test τ ≈ τ_expected
+    @test a ≈ a_expected
 end
