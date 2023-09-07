@@ -1,6 +1,4 @@
-using Test
 using StaticArrays
-using BenchmarkTools
 using LinearAlgebra
 
 include("../src/RBState.jl")

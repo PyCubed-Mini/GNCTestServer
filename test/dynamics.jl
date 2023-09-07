@@ -61,15 +61,6 @@ end
     a_expected = [-SatelliteDynamics.GM_EARTH / r^2, 0.0, 0.0]
     τ_expected = [0.0, 0.0, 0.0]
     @test τ ≈ τ_expected
-<<<<<<< HEAD
-
-    u = [4.0, 3.0, 2.0]
-    @time a, τ = SP.cartesian_acceleration_torque(x, u, model, env)
-    # 0.000127 seconds (383 allocations: 25.406 KiB)
-    a_expected = [-8.696182355824059, -4.582971748165271e-5, -0.00010804973126869058]
-    τ_expected= [1.8457691095622258e-7, -1.3719520438198725e-7, -5.3585508411985804e-8]
-=======
->>>>>>> create_functional_ci
     @test a ≈ a_expected
 end
 

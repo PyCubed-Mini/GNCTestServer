@@ -166,80 +166,73 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
     function cleanup(sim)
         return
     end
+    if initial_condition != nothing
+        initial_condition = copy(initial_condition)
+    end
     return simulate_helper(setup, step, cleanup,
         log_init, log_step,
         terminal_condition, max_iterations,
         initial_condition, measure,
-        model, environment,
+        copy(model), copy(environment),
         silent)
 end
 
 mutable struct SocketSim
     dt::Float64
     satellite_process::Base.Process
-    uplink::Array{UInt8}
-    uplink_ptr::Any # Kept to prevent garbage collection
-    uplink_sem::Any
-    downlink::Array{UInt8}
-    downlink_ptr::Any # Kept to prevent garbage collection
-    downlink_sem::Any
+    socket::Any
     control::Control
 end
 
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
-    terminal_condition=default_terminate, max_iterations=1000,
-    initial_condition=nothing, measure=default_measure,
+    terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
+    initial_condition=nothing,
     model=default_model, environment=default_environment,
     silent=false)
     function setup()
-        println("Creating shared memory and semaphores...")
-        uplink, uplink_ptr = mk_shared("gnc_uplink", 128)
-        uplink_sem = mk_semaphore(67)
-        downlink, downlink_ptr = mk_shared("gnc_downlink", 128)
-        downlink_sem = mk_semaphore(68)
+        println("Initializing ZMQ socket...")
+        socket = init_zmq_socket("tcp://*:5555")
         println("Launching satellite...")
-        sleep(0.1)
         satellite_process = run(launch, wait=false)
         println("Launched")
         return SocketSim(
-            0.5,
+            dt,
             satellite_process,
-            uplink,
-            uplink_ptr,
-            uplink_sem,
-            downlink,
-            downlink_ptr,
-            downlink_sem,
+            socket,
             Control([0.0, 0.0, 0.0])
         )
     end
     function step(sim, measurement, i)
         if sim.satellite_process.exitcode >= 0
-            throw(error("Satellite process exited with code $(sim.satellite_process.exitcode), check /tmp/satlog.txt for details"))
+            throw(error("Satellite process exited with code $(sim.satellite_process.exitcode)"))
         end
-        downlink(sim.downlink, sim.downlink_sem, measurement)
-        uplink_data = uplink(sim.uplink, sim.uplink_sem, i)
-        sim.control = Control(uplink_data["m"])
-        sim.dt = uplink_data["dt"]
+        uplink(measurement, sim.socket)
+        downlink_data = downlink(sim.socket)
+        sim.control = Control(downlink_data["m"])
     end
     function cleanup(sim)
         kill(sim.satellite_process)
-        sim.uplink_sem.remove()
-        sim.downlink_sem.remove()
+        ZMQ.close(sim.socket)
         println("Killed satellite process")
     end
+
+    if initial_condition != nothing
+        initial_condition = copy(initial_condition)
+    end
+
     return simulate_helper(setup, step, cleanup,
         log_init, log_step,
         terminal_condition, max_iterations,
-        initial_condition, measure,
-        model, environment,
+        initial_condition, sil_measure,
+        copy(model), copy(environment),
         silent)
 end
 
 function print_iteration(i, max_iterations, state, env, sim)
-    @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f> dt=%.3f",
-        i, max_iterations, norm(state.angular_velocity), state.position[1], state.position[2], state.position[3], env.b[1],
-        env.b[2], env.b[3], sim.dt)
+    b = 1e9 * env.b
+    @printf("[%d/%d]: norm(ω)=%.3f r=<%.3f %.3f %.3f> b=<%.3f %.3f %.3f>nT dt=%.3f",
+        i, max_iterations, norm(state.angular_velocity), state.position[1], state.position[2], state.position[3], b[1],
+        b[2], b[3], sim.dt)
 end
 
 function print_iteration(i, max_iterations)
@@ -332,7 +325,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
     hist = log_init(state)
     time_hist = []
 
-    try
+    # try
         for i = 1:max_iterations
             local_env = state_view_environment(state, env)
 
@@ -359,11 +352,11 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
         cleanup(sim)
 
         return (hist, time_hist)
-    catch e
-        println("Simulation failed: $e")
-        cleanup(sim)
-        throw(e)
-    end
+    # catch e
+    #     println("Simulation failed: $e")
+    #     cleanup(sim)
+    #     throw(e)
+    # end
 
 end
 
@@ -428,6 +421,19 @@ Default measurement function used by `simulate`, returns the state and environme
 """
 @inline function default_measure(state::RBState, env::Environment)
     return (state, env)
+end
+
+"""
+    sil_measure(state::RBState, env::Environment)
+
+Default measurement function used by `simulate` when launching satellite with a command, returns the state and environment.
+"""
+@inline function sil_measure(state::RBState, env::Environment)
+    return Dict(
+        :ω => state.angular_velocity,
+        :b => env.b,
+        :t => 1694097430,
+    )
 end
 
 """

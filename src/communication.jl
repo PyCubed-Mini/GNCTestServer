@@ -1,8 +1,9 @@
 using ZMQ
 using MsgPack
 
-function init(location)
-    socket = ZMQ.Socket(ZMQ.REP)
+function init_zmq_socket(location)
+    socket = ZMQ.Socket(ZMQ.PAIR)
+    socket.rcvtimeo = 1000
     ZMQ.bind(socket, location)
     return socket
 end
@@ -10,19 +11,15 @@ end
 """
     Send message from server to satellite
 """
-function downlink(measurement, socket)
-    sensors = Dict(
-        :ω => measurement[1].angular_velocity,
-        :b => measurement[2].b,
-    )
-    payload = MsgPack.pack(sensors)
+function uplink(measurement, socket)
+    payload = MsgPack.pack(measurement)
     ZMQ.send(socket, payload)
 end
 
 """
     Recieve message from satellite
 """
-function uplink(socket)
+function downlink(socket)
     raw_msg = ZMQ.recv(socket)
     return MsgPack.unpack(raw_msg)
 end

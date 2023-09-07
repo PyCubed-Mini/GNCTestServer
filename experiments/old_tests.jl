@@ -1,10 +1,12 @@
-using Test
-using LinearAlgebra
-using Plots
-using Random
-using SatelliteDynamics
-include("../src/SatellitePlayground.jl")
-SP = SatellitePlayground
+begin
+    using LinearAlgebra
+    using Plots
+    using Random
+    using Test
+    using SatelliteDynamics
+    using SatellitePlayground
+    SP = SatellitePlayground
+end
 
 @testset "basic single variable integration" begin
     idx = x -> x
@@ -50,7 +52,6 @@ end
 end
 
 @testset "detumbling" begin
-    Random.seed!(1234)
     function control_law(measurement)
         (ω, b) = measurement
 
@@ -71,7 +72,7 @@ end
     model.control_limit = [Inf, Inf, Inf]
 
     @time (data, time) = SP.simulate(control_law, max_iterations=10_000, 
-        measure=measure, log_step=SP.angular_log_step, model=model)
+        measure=measure, log_step=SP.angular_log_step, model=model, initial_condition=default_data.state)
     # 4.344277 seconds (15.07 M allocations: 795.512 MiB, 10.87% gc time, 2.39% compilation time)
     # 4.517416 seconds (14.91 M allocations: 780.852 MiB, 7.04% gc time, 2.35% compilation time)
     # 3.893083 seconds (15.89 M allocations: 776.579 MiB, 8.71% gc time, 1.71% compilation time)
@@ -85,13 +86,13 @@ end
 end
 
 @testset "io" begin
-    Random.seed!(1234)
     model = copy(SP.pqmini_model)
     model.control_limit = [Inf, Inf, Inf]
-    (data, time) = SP.simulate(`sh runfakesat.sh`, max_iterations=2000, log_step=SP.angular_log_step,
+    @time (data, time) = SP.simulate(`python3 fakecubesat.py`, max_iterations=10_000, log_step=SP.angular_log_step,
         model=model)
     data = SP.vec_to_mat(data)
-    display(plot(time, data, title="Socket DeTumbling", xlabel="Time (s)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
+    time /= 60
+    display(plot(time, data, title="DeTumbling", xlabel="Time (minutes)", ylabel="Angular Velocity (rad/s)", labels=["ω1" "ω2" "ω3" "ω"]))
 end
 
 @testset "Simulate multiple detumbling satellites" begin
