@@ -20,7 +20,7 @@ end
 
     model = copy(SP.pqmini_model)
     model.control_limit = [Inf, Inf, Inf]
-    @time (data, time) = SP.simulate(`python3 fakecubesat.py`, max_iterations=SIMULATION_ITERATIONS, log_step=SP.angular_log_step,
+    @time (data, time) = SP.simulate(`python3 python_satellites/fakecubesat.py`, max_iterations=SIMULATION_ITERATIONS, log_step=SP.angular_log_step,
         model=model, initial_condition=default_data.state)
     ω_sil = data[end]
 
