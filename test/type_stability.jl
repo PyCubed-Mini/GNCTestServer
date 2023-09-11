@@ -1,7 +1,3 @@
-using Test
-include("../src/SatellitePlayground.jl")
-SP = SatellitePlayground
-
 begin
   x = SP.RBState([6.7751363e6
     0.0

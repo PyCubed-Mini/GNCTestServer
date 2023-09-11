@@ -1,79 +1,25 @@
-using InterProcessCommunication
-using PyCall
-# using Pkg
-# pyimport_conda("sysv_ipc", Pkg)
-sysv_ipc = PyNULL()
+using ZMQ
+using MsgPack
 
-function __init__()
-    try
-        copy!(sysv_ipc, pyimport("sysv_ipc")) # how to import this / make it a dependency
-    catch e
-        println(e)
-        println("sysv_ipc not installed, communication will not work")
-    end
+function init_zmq_socket(location)
+    socket = ZMQ.Socket(ZMQ.PAIR)
+    socket.rcvtimeo = 1000
+    ZMQ.bind(socket, location)
+    return socket
 end
 
-MAGIC_PACKET_SIZE = 43
-
-function mk_shared(name, size)
-    try
-        shm = IPC.SharedMemory(name)
-        rm(shm)
-    catch e
-        if e isa SystemError
-            IPC._shm_unlink(name)
-        end
-    end
-    shm = IPC.SharedMemory(name, size, perms=0o777)
-    ptr = convert(Ptr{UInt8}, pointer(shm))
-    buf = unsafe_wrap(Array, ptr, sizeof(shm))
-    return buf, shm
+"""
+    Send message from server to satellite
+"""
+function uplink(measurement, socket)
+    payload = MsgPack.pack(measurement)
+    ZMQ.send(socket, payload)
 end
 
-function mk_semaphore(key)
-    try
-        sem = sysv_ipc.Semaphore(key)
-        sem.remove()
-        println("Semaphore should not have existed")
-    catch
-        # This should happen
-    end
-    sem = sysv_ipc.Semaphore(key, flags=sysv_ipc.IPC_CREAT)
-    sem.release() # intialize it as available
-    return sem
-end
-
-
-function downlink(buf, buf_sem, measurement)
-    @pywith buf_sem as _ begin
-        sensors = Dict(
-            :ω => measurement[1].angular_velocity,
-            :b => measurement[2].b,
-        )
-        payload = MsgPack.pack(sensors)
-        if length(payload) + 1 > length(buf)
-            psize = length(payload)
-            throw(error("Payload of size $psize too large for downlink buffer"))
-        end
-        buf[1] = length(payload)
-        buf[2:1+length(payload)] = payload
-    end
-end
-
-function uplink(buf, buf_sem, itteration)
-    start = time()
-    while true
-        id = reinterpret(Int64, buf[1:8])[1]
-        if id == itteration
-            break
-        elseif id >= itteration
-            throw(error("Simulation speed to high, satellite ahead of server (sat: $id, server: $itteration)"))
-        end
-        sleep(0.0001)
-    end
-    @pywith buf_sem as _ begin
-        payload = buf[9:end]
-        res = MsgPack.unpack(payload)
-        return res
-    end
+"""
+    Recieve message from satellite
+"""
+function downlink(socket)
+    raw_msg = ZMQ.recv(socket)
+    return MsgPack.unpack(raw_msg)
 end

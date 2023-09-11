@@ -1,21 +1,15 @@
-import time
 try:
     from ulab.numpy import eye as identity, array, linalg, cross, dot as matmul, isfinite, all
 except Exception:
     from numpy import identity, array, linalg, cross, matmul, isfinite, all
 
-import GNCTestClient
+from GNCTestClient import GNCTestClient
 
-client = GNCTestClient.GNCTestClient()
-client.register_state("control", [0.0, 0.0, 0.0])
-client.register_state("ω", [0.1, 0.2, 0.3])
-client.register_state("b", [0.1, 1.1, -0.2])
+PORT = 5555
 
-
-# def bcross(b, ω, k=7e-4):
 def bcross(b, ω, k=7e-4):
-    b = (array(b))
-    ω = (array(ω))
+    b = array(b)
+    ω = array(ω)
     b_hat = b / linalg.norm(b)
     bbt = matmul(array([b_hat]).transpose(), array([b_hat]))
     M = - k * matmul(identity(3) - bbt, ω)
@@ -25,9 +19,20 @@ def bcross(b, ω, k=7e-4):
         return m.tolist()
     return [0, 0, 0]
 
-client.log('Starting client')
-client.launch()
+def log(text):
+    with open('log.txt', 'a') as f:
+        f.write(text + '\n')
 
-while True:
-    client["control"] = bcross(client["b"], client["ω"])
-    time.sleep(2)
+try:
+    client = GNCTestClient(PORT)
+
+    while True:
+        sensors = client.uplink()
+        angular_velocity = sensors['ω']
+        magnetic_field = sensors['b']
+        t = sensors['t']
+
+        control = bcross(magnetic_field, angular_velocity)
+        client.downlink(control)
+except Exception as e:
+    log(str(e))

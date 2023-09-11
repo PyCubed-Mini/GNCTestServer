@@ -46,6 +46,8 @@ struct RBState{T} <: StaticVector{13,T}
     end
 end
 
+Base.copy(x::RBState) = RBState(copy(x.position), copy(x.velocity), copy(x.attitude), copy(x.angular_velocity))
+
 function RBState(r::AbstractVector, v::AbstractVector, q::AbstractVector, ω::AbstractVector)
     T = promote_type(eltype(r), eltype(v), eltype(q), eltype(ω))
     RBState{T}(r, v, q, ω)
