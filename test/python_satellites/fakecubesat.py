@@ -1,11 +1,21 @@
+import sys
+
+
+def log(text):
+    with open('log.txt', 'a') as f:
+        f.write(f'{text}' + '\n')
+
+
 try:
     from ulab.numpy import eye as identity, array, linalg, cross, dot as matmul, isfinite, all
 except Exception:
     from numpy import identity, array, linalg, cross, matmul, isfinite, all
 
-from GNCTestClient import GNCTestClient
+sys.path.append('..')
+from GNCTestClient import GNCTestClient  # noqa: needs to see root of project directory for client
 
 PORT = 5555
+
 
 def bcross(b, ω, k=7e-4):
     b = array(b)
@@ -19,9 +29,6 @@ def bcross(b, ω, k=7e-4):
         return m.tolist()
     return [0, 0, 0]
 
-def log(text):
-    with open('log.txt', 'a') as f:
-        f.write(text + '\n')
 
 try:
     client = GNCTestClient(PORT)
