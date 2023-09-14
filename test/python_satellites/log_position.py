@@ -22,6 +22,7 @@ try:
         position = sensors['r']
 
         f.write(str(position) + '\n')
+        log(str(position))
 
         client.downlink([0, 0, 0])
 

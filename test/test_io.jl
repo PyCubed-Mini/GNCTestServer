@@ -52,4 +52,6 @@ end
 
     @time (data, time) = SP.simulate(`python3 python_satellites/log_position.py `, max_iterations=SIMULATION_ITERATIONS, log_step=log_step,
         model=model, initial_condition=default_data.state, measure=measure)
+    
+    println(data)
 end
