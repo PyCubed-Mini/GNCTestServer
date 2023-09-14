@@ -30,6 +30,7 @@ using LinearAlgebra
     # 3.839175 seconds (16.68 M allocations: 1.065 GiB, 13.51% gc time, 2.75% compilation time)
     # 3.799204 seconds (16.92 M allocations: 1.079 GiB, 12.32% gc time, 3.54% compilation time)
     # 3.870619 seconds (16.91 M allocations: 1.078 GiB, 14.30% gc time, 1.44% compilation time)
+    # 3.736872 seconds (16.98 M allocations: 1.082 GiB, 13.38% gc time, 2.65% compilation time)
     data = SP.vec_to_mat(data)
     time /= 60
     ω_final = data[end, 1:3]

@@ -1,4 +1,7 @@
 begin
+  include("deps.jl")
+end
+begin
   x = SP.RBState([6.7751363e6
     0.0
     0.0
@@ -23,15 +26,6 @@ end
   Test.@inferred SP.qdot(state.attitude, state.angular_velocity)
 end
 
-
-# @testset "cartesian_acceleration_torque" begin
-#   state = SP.initialize_orbit()
-#   env = copy(SP.default_environment)
-#   model = copy(SP.default_model)
-#   Test.@inferred SP.cartesian_acceleration_torque(state, [0.0, 0.0, 0.0], model, env)
-# end
-
-
 @testset "dynamics" begin
   state = SP.initialize_orbit()
   u = SP.Control([0.0, 0.0, 0.0])
@@ -51,4 +45,16 @@ end
   u = SP.Control([0.0, 0.0, 0.0])
   dt = 0.1
   Test.@inferred SP.integrate_state(state, model, env, u, dt)
+end
+
+@testset "Airspeed from state" begin
+  Test.@inferred SP.airspeed_from_state(default_data.state)
+end
+
+# @testset "drag_acceleration_torque" begin
+#   Test.@inferred SP.drag_acceleration_torque(default_data.state, default_data.model, default_data.env)
+# end
+
+@testset "density_harris_priester" begin
+  Test.@inferred SP.SatelliteDynamics.density_harris_priester(default_data.env.time, default_data.state.position)
 end

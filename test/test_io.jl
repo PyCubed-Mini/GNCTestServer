@@ -33,3 +33,23 @@ end
 
     @test ω_sim ≈ ω_sil
 end
+
+@testset "log_position" begin
+    SIMULATION_ITERATIONS = 10
+
+    model = copy(SP.pqmini_model)
+    model.control_limit = [Inf, Inf, Inf]
+
+    function log_step(hist, step)
+        push!(hist, step.position)
+    end
+
+    @inline function measure(state, env)
+        return Dict(
+            :r => state.position,
+        )
+    end
+
+    @time (data, time) = SP.simulate(`python3 python_satellites/log_position.py `, max_iterations=SIMULATION_ITERATIONS, log_step=log_step,
+        model=model, initial_condition=default_data.state, measure=measure)
+end
