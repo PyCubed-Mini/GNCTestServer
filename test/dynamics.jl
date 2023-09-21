@@ -98,4 +98,4 @@ end
     @time trig = SP.rk4(0.0, 3.0, 0.1, (x, t) -> sin(x)) 
     # 0.007506 seconds (6.92 k allocations: 356.416 KiB, 98.31% compilation time)
     @test trig ≈ 0.009142653672834007 atol = 0.01
-end;
+end
