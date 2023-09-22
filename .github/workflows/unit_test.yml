@@ -12,7 +12,9 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 2
     strategy:
+      fail-fast: true
       matrix:
         julia-version: ["1.8.4"]
         julia-arch: [x64, x86]
@@ -22,7 +24,7 @@ jobs:
             julia-arch: x86
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.julia-version }}
