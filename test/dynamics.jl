@@ -1,6 +1,7 @@
 begin
     using LinearAlgebra
     using SatelliteDynamics
+    include("deps.jl")
 end
 
 @testset "Airspeed from state" begin
@@ -89,4 +90,12 @@ end
     τ_expected = [0.0, 0.0, 0.0]
     @test τ ≈ τ_expected
     @test a ≈ a_expected
+end
+
+@testset "basic single variable integration" begin
+    idx = x -> x
+    @test SP.rk4(0.0, 0.0, 0.1, (x, t) -> 2 * x + 1) ≈ 0.11 atol = 0.001
+    @time trig = SP.rk4(0.0, 3.0, 0.1, (x, t) -> sin(x)) 
+    # 0.007506 seconds (6.92 k allocations: 356.416 KiB, 98.31% compilation time)
+    @test trig ≈ 0.009142653672834007 atol = 0.01
 end

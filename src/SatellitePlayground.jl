@@ -22,7 +22,7 @@ end
 """
 Rung-Kutta 4th order integrator
 """
-function rk4(x, t, dt, derivative)
+@inline function rk4(x, t, dt, derivative::F) where F
     k₁ = dt * derivative(x, t)
     k₂ = dt * derivative(x + k₁ * 0.5, t + dt * 0.5)
     k₃ = dt * derivative(x + k₂ * 0.5, t + dt * 0.5)
@@ -166,7 +166,7 @@ function simulate(control::Function; log_init=default_log_init, log_step=default
     function cleanup(sim)
         return
     end
-    if initial_condition != nothing
+    if initial_condition !== nothing
         initial_condition = copy(initial_condition)
     end
     return simulate_helper(setup, step, cleanup,
@@ -186,7 +186,7 @@ end
 
 function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_step,
     terminal_condition=default_terminate, max_iterations=1000, dt=0.5,
-    initial_condition=nothing,
+    initial_condition=nothing, measure=sil_measure,
     model=default_model, environment=default_environment,
     silent=false)
     function setup()
@@ -216,14 +216,14 @@ function simulate(launch::Cmd; log_init=default_log_init, log_step=default_log_s
         println("Killed satellite process")
     end
 
-    if initial_condition != nothing
+    if initial_condition !== nothing
         initial_condition = copy(initial_condition)
     end
 
     return simulate_helper(setup, step, cleanup,
         log_init, log_step,
         terminal_condition, max_iterations,
-        initial_condition, sil_measure,
+        initial_condition, measure,
         copy(model), copy(environment),
         silent)
 end
@@ -325,7 +325,7 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
     hist = log_init(state)
     time_hist = []
 
-    # try
+    try
         for i = 1:max_iterations
             local_env = state_view_environment(state, env)
 
@@ -352,11 +352,11 @@ function simulate_helper(setup::Function, step::Function, cleanup::Function,
         cleanup(sim)
 
         return (hist, time_hist)
-    # catch e
-    #     println("Simulation failed: $e")
-    #     cleanup(sim)
-    #     throw(e)
-    # end
+    catch e
+        println("Simulation failed: $e")
+        cleanup(sim)
+        throw(e)
+    end
 
 end
 

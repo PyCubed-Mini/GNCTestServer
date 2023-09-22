@@ -8,12 +8,6 @@ begin
     SP = SatellitePlayground
 end
 
-@testset "basic single variable integration" begin
-    idx = x -> x
-    @test SP.rk4(0.0, 0.0, 0.1, (x, t) -> 2 * x + 1) ≈ 0.11 atol = 0.01
-    @test SP.rk4(0.0, 3.0, 0.1, (x, t) -> sin(x)) ≈ 0.009142653672834007 atol = 0.01
-end;
-
 function no_control(measurement)
     return zero(SP.Control)
 end
