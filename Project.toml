@@ -19,6 +19,7 @@ Rotations = "1.4.0"
 SatelliteDynamics = "0.4.5"
 StaticArrays = "1.5.17"
 julia = "1.8.4"
+ZMQ = "1.2.2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

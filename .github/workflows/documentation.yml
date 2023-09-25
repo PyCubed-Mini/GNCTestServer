@@ -13,8 +13,6 @@ jobs:
       - uses: julia-actions/setup-julia@latest
         with:
           version: '1.8.4'
-      - name: Install python dependencies
-        run: pip3 install sysv_ipc
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.add("Documenter"); Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Build and deploy
